@@ -1,11 +1,12 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"compress/gzip"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"os"
 	"sort"
 	"strconv"
@@ -13,7 +14,10 @@ import (
 	"../../model"
 
 	"github.com/gorilla/mux"
+	"github.com/goware/urlx"
 	"github.com/mattetti/filebuffer"
+	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/expfmt"
 	"github.com/sirupsen/logrus"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 	filetype "gopkg.in/h2non/filetype.v1"
@@ -47,7 +51,7 @@ func osfile2fname(fss []os.FileInfo, dir string) []string {
 func frameReader2PortNumberMap() map[int16]*mux.Router {
 	out := make(map[int16]*mux.Router)
 	for uri := range framereaders {
-		u, err := url.Parse(uri)
+		u, err := urlx.Parse(uri)
 		logrus.Debugf("URL2Port url %s", uri)
 		if err != nil {
 			logrus.Infof("Error parsing URI: %s %v", uri, err)
@@ -71,9 +75,9 @@ func frameReader2PortNumberMap() map[int16]*mux.Router {
 
 		hf := out[int16(i)].HandleFunc(path, handlerGenerator(uri))
 
-		if u.Host != "" {
-			logrus.Debugf("host %s", u.Host)
-			hf.Host(u.Host)
+		if u.Hostname() != "" {
+			logrus.Debugf("host %s", u.Hostname())
+			hf.Host(u.Hostname())
 		}
 	}
 
@@ -89,7 +93,7 @@ func generateFramereaders() {
 	}
 
 	fnames := osfile2fname(files, *dir)
-	sort.Sort(ByNumber(fnames))
+	sort.Sort(model.ByNumber(fnames))
 
 	logrus.Debugf("fnames: %v", fnames)
 
@@ -126,15 +130,44 @@ func generateFramereaders() {
 	}
 }
 
+func updateTimestamp(timestamp int64, body io.Reader) []byte {
+	dec := expfmt.NewDecoder(body, expfmt.FmtText)
+	var b bytes.Buffer
+	w := bufio.NewWriter(&b)
+
+	for {
+		var metrics dto.MetricFamily
+		err := dec.Decode(&metrics)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			logrus.Error(err)
+			break
+		}
+
+		for _, metric := range metrics.GetMetric() {
+			metric.TimestampMs = &timestamp
+		}
+
+		enc := expfmt.NewEncoder(w, expfmt.FmtText)
+
+		enc.Encode(&metrics)
+	}
+
+	return b.Bytes()
+}
+
 func handlerGenerator(url string) func(w http.ResponseWriter, r *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		frame := <-framereaders[url]
-		hj, _ := w.(http.Hijacker)
-		conn, buf, _ := hj.Hijack()
-		buf.Write(frame.Data)
-		buf.Flush()
-		conn.Close()
+		response, err := http.ReadResponse(bufio.NewReader(filebuffer.New(frame.Data)), r)
+		if err != nil {
+			logrus.Error(err)
+			return
+		}
+		w.Write(updateTimestamp(frame.Timestamp, response.Body))
 	}
 }
 

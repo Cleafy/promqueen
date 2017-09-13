@@ -35,6 +35,6 @@ func (header *Header) URIString() string {
 //  - the Data slice that contains the data of the frame
 type Frame struct {
 	Size      int64
-	Timestamp uint64
+	Timestamp int64
 	Data      []byte
 }

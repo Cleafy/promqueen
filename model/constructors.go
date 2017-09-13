@@ -38,7 +38,7 @@ func NewEmptyHeader() *Header {
 func NewFrame(data []byte) *Frame {
 	return &Frame{
 		Size:      int64(len(data)),
-		Timestamp: uint64(time.Now().Unix()),
+		Timestamp: time.Now().Unix(),
 		Data:      data,
 	}
 }

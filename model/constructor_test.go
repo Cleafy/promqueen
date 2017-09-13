@@ -29,6 +29,6 @@ func TestFrameCreation(t *testing.T) {
 	assert.Equal(t, frame.Data, []byte("foobar"), "data contained should be equal")
 	assert.NotZero(t, frame.Timestamp, "timestamp should be setted and different from zero")
 	assert.Condition(t, func() bool {
-		return uint64(time.Now().Unix()) >= frame.Timestamp
+		return time.Now().Unix() >= frame.Timestamp
 	}, "current timestamp should be greater or equal that frame creation timestamp")
 }
