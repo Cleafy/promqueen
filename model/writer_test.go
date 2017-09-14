@@ -15,22 +15,29 @@ func TestWriteFrame(t *testing.T) {
 	backing := make([]byte, 0)
 	buffer := filebuffer.New(backing)
 	uri := "http://ciao:8080/v1/metrics"
+	name := "foobar"
 
-	err := WriteFrame(buffer, uri, NewFrame([]byte("Foo1Bar")))
+	err := WriteFrame(buffer, NewFrame(name, uri, []byte("Foo1Bar")))
 	assert.Empty(t, err, "error1 should be empty")
-	err = WriteFrame(buffer, uri, NewFrame([]byte("Foo2Bar")))
+	err = WriteFrame(buffer, NewFrame(name, uri, []byte("Foo2Bar")))
 	assert.Empty(t, err, "error2 should be empty")
-	err = WriteFrame(buffer, uri, NewFrame([]byte("Foo3Bar")))
+	err = WriteFrame(buffer, NewFrame(name, uri, []byte("Foo3Bar")))
 	assert.Empty(t, err, "error3 should be empty")
 
 	// restart the
 	buffer.Seek(0, io.SeekStart)
 	collection := ReadAll(buffer)
 
-	assert.True(t, CheckVersion(collection.Header))
-	assert.Equal(t, uri, collection.Header.URIString(), "saved uri should be equal")
+	for _, frame := range collection.Data {
+		assert.True(t, CheckVersion(frame))
+	}
 	assert.Equal(t, 3, len(collection.Data), "there should be exactly 3 frames")
-	logrus.Debugf("collection data %+v", collection.Header)
+
+	for _, frame := range collection.Data {
+		assert.Equal(t, uri, frame.URIString(), "saved uri should be equal")
+		assert.Equal(t, name, frame.NameString(), "saved uri should be equal")
+	}
+	logrus.Debugf("collection data %+v", collection.Data)
 	assert.Equal(t, "Foo1Bar", string(collection.Data[0].Data), "data should be equal")
 	assert.Equal(t, "Foo2Bar", string(collection.Data[1].Data), "data should be equal")
 	assert.Equal(t, "Foo3Bar", string(collection.Data[2].Data), "data should be equal")
@@ -42,5 +49,5 @@ func init() {
 	logrus.SetOutput(os.Stdout)
 
 	// Only log the warning severity or above.
-	//logrus.SetLevel(logrus.DebugLevel)
+	// logrus.SetLevel(logrus.DebugLevel)
 }

@@ -10,28 +10,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var headerSample = []byte{
-	0x83, 0xF1, 0xF1, // Magic
-	0x00, 0x00, 0x00, // Version
-	0x42, 0x42, 0x42, 0x42, 0x00, // URI (AAAA\0)
-} // len(headerSample) == 19
+var data = []byte{
+	0x42, 0x42, 0x42, 0x42,
+}
+
+var datalen byte = byte(len(data))
 
 var frameSample = []byte{
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, // Size
+	0x83, 0xF1, 0xF1, // Magic
+	0x00, 0x00, 0x00, // Version
+	0x00, 0x00, // Reserved
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, datalen, // Size
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Timestamp
-	0x42, 0x42, 0x42, 0x42, // Data (AAAA)
 } // len(frameSample) == 20
 
 func init() {
-	h := make([]byte, HeaderLength)
-	copy(h, headerSample)
-	headerSample = h
-}
-
-func TestReadHeader(t *testing.T) {
-	buffer := filebuffer.New(headerSample)
-	_, err := ReadHeader(buffer)
-	assert.Empty(t, err, "should not be any error")
+	f := make([]byte, FrameHeaderLength)
+	copy(f, frameSample)
+	frameSample = f
+	frameSample = append(frameSample, data...)
 }
 
 func TestReadFrame(t *testing.T) {
@@ -40,21 +37,17 @@ func TestReadFrame(t *testing.T) {
 	assert.Empty(t, err, "should not be any error")
 }
 
-func TestReadHeaderThen2Frames(t *testing.T) {
-	tmp := append(headerSample, frameSample...)
-	tmp = append(tmp, frameSample...)
+func TestRead2Frames(t *testing.T) {
+	tmp := append(frameSample, frameSample...)
 
 	assert.Equal(t,
-		len(frameSample)*2+len(headerSample),
+		len(frameSample)*2,
 		len(tmp),
 		"tmp length should be the sum of all the lenghts")
 
 	buffer := filebuffer.New(tmp)
 
-	_, err := ReadHeader(buffer)
-	assert.Empty(t, err, "should not be any error")
-
-	_, err = ReadFrame(buffer)
+	_, err := ReadFrame(buffer)
 	assert.Empty(t, err, "should not be any error")
 
 	_, err = ReadFrame(buffer)
@@ -62,11 +55,10 @@ func TestReadHeaderThen2Frames(t *testing.T) {
 }
 
 func TestReadAll(t *testing.T) {
-	tmp := append(headerSample, frameSample...)
-	tmp = append(tmp, frameSample...)
+	tmp := append(frameSample, frameSample...)
 
 	assert.Equal(t,
-		len(frameSample)*2+len(headerSample),
+		len(frameSample)*2,
 		len(tmp),
 		"tmp length should be the sum of all the lenghts")
 
@@ -74,16 +66,17 @@ func TestReadAll(t *testing.T) {
 
 	collection := ReadAll(buffer)
 
-	assert.True(t, CheckVersion(collection.Header), "the header version should be correct")
+	for _, frame := range collection.Data {
+		assert.True(t, CheckVersion(frame), "the header version should be correct")
+	}
 	assert.Equal(t, 2, len(collection.Data), "there should be two frames")
 }
 
 func TestNewFrameReader(t *testing.T) {
-	tmp := append(headerSample, frameSample...)
-	tmp = append(tmp, frameSample...)
+	tmp := append(frameSample, frameSample...)
 
 	assert.Equal(t,
-		len(frameSample)*2+len(headerSample),
+		len(frameSample)*2,
 		len(tmp),
 		"tmp length should be the sum of all the lenghts")
 
@@ -106,5 +99,5 @@ func init() {
 	logrus.SetOutput(os.Stdout)
 
 	// Only log the warning severity or above.
-	//logrus.SetLevel(logrus.DebugLevel)
+	// logrus.SetLevel(logrus.DebugLevel)
 }

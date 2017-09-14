@@ -11,39 +11,30 @@ var (
 )
 
 // CheckVersion verifies that the binary format is compatible with the current release
-func CheckVersion(header *Header) bool {
-	return header.Magic == magic && header.Version == version
-}
-
-// NewHeader generates a new Header from a given port
-func NewHeader(uri string) *Header {
-	var u [128]byte
-	copy(u[:], uri)
-
-	header := &Header{
-		Magic:   magic,
-		Version: version,
-		URI:     u,
-	}
-
-	return header
-}
-
-// NewEmptyHeader generates a new empty header
-func NewEmptyHeader() *Header {
-	return NewHeader("")
+func CheckVersion(frame *Frame) bool {
+	return frame.Header.Magic == magic && frame.Header.Version == version
 }
 
 // NewFrame generates a new Frame from a given byte data
-func NewFrame(data []byte) *Frame {
+func NewFrame(name string, uri string, data []byte) *Frame {
+	var u, n [52]byte
+	copy(u[:], uri)
+	copy(n[:], name)
+
 	return &Frame{
-		Size:      int64(len(data)),
-		Timestamp: time.Now().Unix(),
-		Data:      data,
+		Header: &FrameHeader{
+			Magic:     magic,
+			Version:   version,
+			Size:      int64(len(data)),
+			Timestamp: time.Now().Unix(),
+			Name:      n,
+			URI:       u,
+		},
+		Data: data,
 	}
 }
 
 // NewEmptyFrame generates a new empty frame
 func NewEmptyFrame() *Frame {
-	return NewFrame(nil)
+	return NewFrame("", "", nil)
 }
