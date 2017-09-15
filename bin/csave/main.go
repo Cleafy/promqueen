@@ -1,6 +1,7 @@
 package main
 
 import (
+	"compress/gzip"
 	"io"
 	"net/http"
 	"os"
@@ -15,26 +16,30 @@ import (
 )
 
 var (
-	debug    = kingpin.Flag("debug", "Enable debug mode.").Bool()
-	interval = kingpin.Flag("interval", "Timeout waiting for ping.").Default("60s").OverrideDefaultFromEnvar("ACTION_INTERVAL").Short('i').Duration()
-	umap     = kingpin.Flag("umap", "stringmap [eg. output.met=http://get.uri:port/uri].").Short('u').StringMap()
-	dir      = kingpin.Flag("dir", "Output directory.").Short('d').OverrideDefaultFromEnvar("OUTPUT_DIRECTORY").Default("/tmp").String()
-	filemap  = make(map[string]io.WriteSeeker)
-	version  = "0.0.1"
+	debug      = kingpin.Flag("debug", "Enable debug mode.").Bool()
+	enableGZIP = kingpin.Flag("gzip", "Disable gzip mode.").Bool()
+	interval   = kingpin.Flag("interval", "Timeout waiting for ping.").Default("60s").OverrideDefaultFromEnvar("ACTION_INTERVAL").Short('i').Duration()
+	umap       = kingpin.Flag("umap", "stringmap [eg. service.name=http://get.uri:port/uri].").Short('u').StringMap()
+	output     = kingpin.Flag("output", "Output file.").Short('o').OverrideDefaultFromEnvar("OUTPUT_FILE").Default("metrics").String()
+	version    = "0.0.1"
+	filewriter io.Writer
 )
 
-func writerFor(fname string) (io.WriteSeeker, error) {
-	nname := *dir + "/" + fname
-	if _, err := os.Stat(nname); !os.IsNotExist(err) && filemap[nname] != nil {
-		return filemap[nname], nil
+func writerFor() (io.Writer, error) {
+	if _, err := os.Stat(*output); !os.IsNotExist(err) && filewriter != nil {
+		return filewriter, nil
 	}
 
-	file, err := os.OpenFile(nname, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(*output, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return nil, err
 	}
-	filemap[nname] = file
-	return filemap[nname], nil
+	if *enableGZIP {
+		filewriter = gzip.NewWriter(file)
+	} else {
+		filewriter = file
+	}
+	return filewriter, nil
 }
 
 func main() {
@@ -53,8 +58,8 @@ func main() {
 	ticker := time.NewTicker(*interval)
 
 	for range ticker.C {
-		for fname, url := range *umap {
-			writer, err := writerFor(fname)
+		for sname, url := range *umap {
+			writer, err := writerFor()
 			if err != nil {
 				logrus.Errorf("writeFor failed with %v", err)
 				continue
@@ -73,9 +78,9 @@ func main() {
 				continue
 			}
 
-			frame := model.NewFrame(dump)
+			frame := model.NewFrame(sname, url, dump)
 
-			err = model.WriteFrame(writer, url, frame)
+			err = model.WriteFrame(writer, frame)
 			if err != nil {
 				logrus.Errorf("model.WriteFrame failed with %v", err)
 				continue
