@@ -17,7 +17,7 @@ func (frame *Frame) NameString() string {
 	return strings.TrimRight(string(frame.Header.Name[:]), "\x00")
 }
 
-// FrameHeaderLenght total header length size for each frame
+// FrameHeaderLength total header length size for each frame
 const FrameHeaderLength = 128
 
 // FrameHeader represents the header of each Frame

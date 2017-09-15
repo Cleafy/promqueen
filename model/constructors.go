@@ -11,8 +11,8 @@ var (
 )
 
 // CheckVersion verifies that the binary format is compatible with the current release
-func CheckVersion(frame *Frame) bool {
-	return frame.Header.Magic == magic && frame.Header.Version == version
+func CheckVersion(header *FrameHeader) bool {
+	return header.Magic == magic && header.Version == version
 }
 
 // NewFrame generates a new Frame from a given byte data

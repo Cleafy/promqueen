@@ -4,20 +4,22 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"flag"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"sort"
-	"strconv"
+	"time"
 
-	"../../model"
+	cm "cleafy.com/replayer/model"
 
-	"github.com/gorilla/mux"
-	"github.com/goware/urlx"
 	"github.com/mattetti/filebuffer"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/log"
+	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/storage/local"
 	"github.com/sirupsen/logrus"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 	filetype "gopkg.in/h2non/filetype.v1"
@@ -26,18 +28,29 @@ import (
 var replayType = filetype.NewType("rep", "application/replay")
 
 func replayMatcher(buf []byte) bool {
-	header, err := model.ReadHeader(filebuffer.New(buf))
+	header, err := cm.ReadFrameHeader(filebuffer.New(buf))
 	if err != nil {
 		return false
 	}
-	return model.CheckVersion(header)
+	return cm.CheckVersion(header)
 }
 
 var (
-	debug        = kingpin.Flag("debug", "Enable debug mode.").Bool()
-	dir          = kingpin.Flag("dir", "Input directory.").Short('d').OverrideDefaultFromEnvar("INPUT_DIRECTORY").Default("/tmp").String()
-	framereaders = make(map[string]<-chan model.Frame)
-	version      = "0.0.1"
+	debug            = kingpin.Flag("debug", "Enable debug mode.").Bool()
+	dir              = kingpin.Flag("dir", "Input directory.").Short('d').OverrideDefaultFromEnvar("INPUT_DIRECTORY").Default("/tmp").String()
+	framereader      = make(<-chan cm.Frame)
+	version          = "0.0.1"
+	cfgMemoryStorage = local.MemorySeriesStorageOptions{
+		MemoryChunks:       1024,
+		MaxChunksToPersist: 1024,
+		//PersistenceStoragePath:
+		//PersistenceRetentionPeriod:
+		//CheckpointInterval:         time.Minute*30,
+		//CheckpointDirtySeriesLimit: 10000,
+		Dirty:          true,
+		PedanticChecks: true,
+		SyncStrategy:   local.Always,
+	}
 )
 
 func osfile2fname(fss []os.FileInfo, dir string) []string {
@@ -48,52 +61,16 @@ func osfile2fname(fss []os.FileInfo, dir string) []string {
 	return out
 }
 
-func frameReader2PortNumberMap() map[int16]*mux.Router {
-	out := make(map[int16]*mux.Router)
-	for uri := range framereaders {
-		u, err := urlx.Parse(uri)
-		logrus.Debugf("URL2Port url %s", uri)
-		if err != nil {
-			logrus.Infof("Error parsing URI: %s %v", uri, err)
-			continue
-		}
-		i, err := strconv.ParseInt(u.Port(), 10, 16)
-		if err != nil {
-			logrus.Debugf("Error parsing PORT: %s %v", u.Port(), err)
-			i = 80
-		}
-
-		if out[int16(i)] == nil {
-			out[int16(i)] = mux.NewRouter()
-		}
-
-		path := "/"
-		if u.Path != "" {
-			logrus.Debugf("path %s", path)
-			path = u.Path
-		}
-
-		hf := out[int16(i)].HandleFunc(path, handlerGenerator(uri))
-
-		if u.Hostname() != "" {
-			logrus.Debugf("host %s", u.Hostname())
-			hf.Host(u.Hostname())
-		}
-	}
-
-	return out
-}
-
-func generateFramereaders() {
-	filemap := make(map[string][]io.Reader)
+func generateFramereader() {
 	// 1. Check for every file that is GZip or csave format and create the filemap
 	files, err := ioutil.ReadDir(*dir)
 	if err != nil {
 		logrus.Fatalf("generateFilemap: %v", err)
 	}
+	readers := make([]io.Reader, 0)
 
 	fnames := osfile2fname(files, *dir)
-	sort.Sort(model.ByNumber(fnames))
+	sort.Sort(cm.ByNumber(fnames))
 
 	logrus.Debugf("fnames: %v", fnames)
 
@@ -105,32 +82,26 @@ func generateFramereaders() {
 		}
 		if ftype.MIME.Value == "application/replay" {
 			f, _ := os.Open(filepath)
-			logrus.Debugf("reading header: %v", filepath)
-			header, _ := model.ReadHeader(f)
-			f.Seek(0, io.SeekStart)
-			filemap[header.URIString()] = append(filemap[header.URIString()], f)
+			readers = append(readers, f)
 		}
 
 		if ftype.MIME.Value == "application/gzip" {
 			f, _ := os.Open(filepath)
 			logrus.Debugf("reading header: %v", filepath)
 			gz, _ := gzip.NewReader(f)
-			header, err := model.ReadHeader(gz)
-			if err == nil {
+			header, err := cm.ReadFrameHeader(gz)
+			if err == nil && cm.CheckVersion(header) {
 				f.Seek(0, io.SeekStart)
 				gz, _ = gzip.NewReader(f)
-				filemap[header.URIString()] = append(filemap[header.URIString()], gz)
+				readers = append(readers, gz)
 			}
 		}
 	}
 
-	// 2. generate the framereader channel from the filesmap
-	for url, readers := range filemap {
-		framereaders[url] = model.NewMultiReader(readers)
-	}
+	framereader = cm.NewMultiReader(readers)
 }
 
-func updateTimestamp(timestamp int64, body io.Reader) []byte {
+func updateURLTimestamp(timestamp int64, name string, url string, body io.Reader) []byte {
 	dec := expfmt.NewDecoder(body, expfmt.FmtText)
 	var b bytes.Buffer
 	w := bufio.NewWriter(&b)
@@ -146,8 +117,16 @@ func updateTimestamp(timestamp int64, body io.Reader) []byte {
 			break
 		}
 
+		lpName := "scrapeURL"
+		lpValue := "test"
+
 		for _, metric := range metrics.GetMetric() {
 			metric.TimestampMs = &timestamp
+			lp := dto.LabelPair{
+				Name:  &lpName,
+				Value: &lpValue,
+			}
+			metric.Label = append(metric.Label, &lp)
 		}
 
 		enc := expfmt.NewEncoder(w, expfmt.FmtText)
@@ -158,45 +137,100 @@ func updateTimestamp(timestamp int64, body io.Reader) []byte {
 	return b.Bytes()
 }
 
-func handlerGenerator(url string) func(w http.ResponseWriter, r *http.Request) {
+func main() {
+	kingpin.Version(version)
 
-	return func(w http.ResponseWriter, r *http.Request) {
-		frame := <-framereaders[url]
+	kingpin.Flag("storage.path", "Directory path to create and fill the data store under.").Default("data").StringVar(&cfgMemoryStorage.PersistenceStoragePath)
+	kingpin.Flag("storage.retention-period", "Period of time to store data for").Default("360h").DurationVar(&cfgMemoryStorage.PersistenceRetentionPeriod)
+
+	kingpin.Flag("storage.checkpoint-interval", "Period of time to store data for").Default("30m").DurationVar(&cfgMemoryStorage.CheckpointInterval)
+	kingpin.Flag("storage.checkpoint-dirty-series-limit", "Period of time to store data for").Default("10000").IntVar(&cfgMemoryStorage.CheckpointDirtySeriesLimit)
+
+	kingpin.Parse()
+
+	if *debug {
+		logrus.SetLevel(logrus.DebugLevel)
+		flag.Set("log.level", "debug")
+	}
+
+	log.Infoln("Prefilling into", cfgMemoryStorage.PersistenceStoragePath)
+	localStorage := local.NewMemorySeriesStorage(&cfgMemoryStorage)
+
+	sampleAppender := localStorage
+
+	log.Infoln("Starting the storage engine")
+	if err := localStorage.Start(); err != nil {
+		log.Errorln("Error opening memory series storage:", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if err := localStorage.Stop(); err != nil {
+			log.Errorln("Error stopping storage:", err)
+		}
+	}()
+
+	filetype.AddMatcher(replayType, replayMatcher)
+
+	generateFramereader()
+	logrus.Debug("frameReader %+v", framereader)
+
+	sout := bufio.NewWriter(os.Stdout)
+	defer sout.Flush()
+
+	r := &http.Request{}
+
+	for frame := range framereader {
 		response, err := http.ReadResponse(bufio.NewReader(filebuffer.New(frame.Data)), r)
 		if err != nil {
 			logrus.Error(err)
 			return
 		}
-		w.Write(updateTimestamp(frame.Timestamp, response.Body))
-	}
-}
+		bytes := updateURLTimestamp(frame.Header.Timestamp, frame.NameString(), frame.URIString(), response.Body)
+		// TODO: here create a prefill nd output them
+		//_, err = sout.Write(bytes)
+		//if err != nil {
+		//	logrus.Error(err)
+		//}
+		sdec := expfmt.SampleDecoder{
+			Dec: expfmt.NewDecoder(filebuffer.New(bytes), expfmt.FmtText),
+			Opts: &expfmt.DecodeOptions{
+				Timestamp: model.Now(),
+			},
+		}
 
-func main() {
-	kingpin.Version(version)
-	kingpin.Parse()
+		decSamples := make(model.Vector, 0, 1)
 
-	if *debug {
-		logrus.SetLevel(logrus.DebugLevel)
-	}
+		if err := sdec.Decode(&decSamples); err != nil {
+			log.Errorln("Could not decode metric:", err)
+			continue
+		}
 
-	filetype.AddMatcher(replayType, replayMatcher)
+		log.Debugln("Ingested", len(decSamples), "metrics")
 
-	generateFramereaders()
-	ports := frameReader2PortNumberMap()
-	logrus.Debug("frameReader %+v", framereaders)
-	logrus.Debug("ports %+v", ports)
+		for sampleAppender.NeedsThrottling() {
+			log.Debugln("Waiting 100ms for appender to be ready for more data")
+			time.Sleep(time.Millisecond * 100)
+		}
 
-	done := make(chan bool)
-	for port := range ports {
-		go func(port int16) {
-			logrus.Infof("Listening on port %d", port)
-			logrus.Error(http.ListenAndServe(":"+strconv.FormatInt(int64(port), 10), ports[port]))
-			done <- true
-		}(port)
-	}
+		var (
+			numOutOfOrder = 0
+			numDuplicates = 0
+		)
 
-	for i := 0; i < len(ports); i++ {
-		<-done
+		for _, s := range model.Samples(decSamples) {
+			if err := sampleAppender.Append(s); err != nil {
+				switch err {
+				case local.ErrOutOfOrderSample:
+					numOutOfOrder++
+					log.With("sample", s).With("error", err).Info("Sample discarded")
+				case local.ErrDuplicateSampleForTimestamp:
+					numDuplicates++
+					log.With("sample", s).With("error", err).Info("Sample discarded")
+				default:
+					log.With("sample", s).With("error", err).Info("Sample discarded")
+				}
+			}
+		}
 	}
 	logrus.Info("Exiting! :)")
 }

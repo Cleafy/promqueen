@@ -19,7 +19,7 @@ func NewMultiReader(r []io.Reader) <-chan Frame {
 		windex := 0
 		for windex < len(r) {
 			frame, err := ReadFrame(r[windex])
-			if err != nil || !CheckVersion(frame) {
+			if err != nil || !CheckVersion(frame.Header) {
 				windex++
 				if windex >= len(r) {
 					break
@@ -64,39 +64,51 @@ func readNextBytes(reader io.Reader, number int64) ([]byte, error) {
 	return bytes, nil
 }
 
-// ReadFrame reads the next frame from the Reader or returns an error in
-// case it cannot interpret the Frame
-func ReadFrame(r io.Reader) (*Frame, error) {
-	frame := NewEmptyFrame()
+// ReadFrameHeader reads the next FrameHeader from the reader
+func ReadFrameHeader(r io.Reader) (*FrameHeader, error) {
+	header := &FrameHeader{}
 
 	// read the frame Size
-	data, err := readNextBytes(r, int64(unsafe.Sizeof(*frame.Header)))
+	data, err := readNextBytes(r, int64(unsafe.Sizeof(*header)))
 	if err != nil {
 		return nil, err
 	}
 	buffer := bytes.NewBuffer(data)
 
-	err = binary.Read(buffer, binary.BigEndian, frame.Header)
+	err = binary.Read(buffer, binary.BigEndian, header)
 	if err != nil {
 		return nil, err
 	}
-	logrus.Debugf("ReadFrame: frame.Header %d", frame.Header)
+	logrus.Debugf("ReadFrame: frame.Header %d", header)
+
+	return header, nil
+}
+
+// ReadFrame reads the next frame from the Reader or returns an error in
+// case it cannot interpret the Frame
+func ReadFrame(r io.Reader) (frame *Frame, err error) {
+	frame = NewEmptyFrame()
+	frame.Header, err = ReadFrameHeader(r)
+
+	if err != nil {
+		return
+	}
 
 	// generate the correct framesize for .Data
 	frame.Data = make([]byte, frame.Header.Size)
 
 	// read the frame Data
-	data, err = readNextBytes(r, int64(len(frame.Data)))
+	data, err := readNextBytes(r, int64(len(frame.Data)))
 	if err != nil {
-		return nil, err
+		return
 	}
-	buffer = bytes.NewBuffer(data)
+	buffer := bytes.NewBuffer(data)
 
 	err = binary.Read(buffer, binary.BigEndian, frame.Data)
 	if err != nil {
-		return nil, err
+		return
 	}
 	logrus.Debugf("ReadFrame: frame.Data %d", frame.Data)
 
-	return frame, nil
+	return
 }

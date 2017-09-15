@@ -67,7 +67,7 @@ func TestReadAll(t *testing.T) {
 	collection := ReadAll(buffer)
 
 	for _, frame := range collection.Data {
-		assert.True(t, CheckVersion(frame), "the header version should be correct")
+		assert.True(t, CheckVersion(frame.Header), "the header version should be correct")
 	}
 	assert.Equal(t, 2, len(collection.Data), "there should be two frames")
 }

@@ -29,7 +29,7 @@ func TestWriteFrame(t *testing.T) {
 	collection := ReadAll(buffer)
 
 	for _, frame := range collection.Data {
-		assert.True(t, CheckVersion(frame))
+		assert.True(t, CheckVersion(frame.Header))
 	}
 	assert.Equal(t, 3, len(collection.Data), "there should be exactly 3 frames")
 

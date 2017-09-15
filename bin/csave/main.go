@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"../../model"
+	"cleafy.com/replayer/model"
 
 	"net/http/httputil"
 
