@@ -22,8 +22,16 @@ var (
 	umap       = kingpin.Flag("umap", "stringmap [eg. service.name=http://get.uri:port/uri].").Short('u').StringMap()
 	output     = kingpin.Flag("output", "Output file.").Short('o').OverrideDefaultFromEnvar("OUTPUT_FILE").Default("metrics").String()
 	version    = "0.0.1"
-	filewriter io.Writer
+	filewriter io.WriteCloser
 )
+
+func closeIfNotNil(wc io.WriteCloser) {
+	if wc != nil {
+		if err := wc.Close(); err != nil {
+			logrus.Info(err)
+		}
+	}
+}
 
 func writerFor() (io.Writer, error) {
 	if _, err := os.Stat(*output); !os.IsNotExist(err) && filewriter != nil {
@@ -34,6 +42,7 @@ func writerFor() (io.Writer, error) {
 	if err != nil {
 		return nil, err
 	}
+	closeIfNotNil(filewriter)
 	if *enableGZIP {
 		filewriter = gzip.NewWriter(file)
 	} else {
