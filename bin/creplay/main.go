@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"compress/gzip"
 	"flag"
 	"io"
@@ -101,40 +100,47 @@ func generateFramereader() {
 	framereader = cm.NewMultiReader(readers)
 }
 
-func updateURLTimestamp(timestamp int64, name string, url string, body io.Reader) []byte {
+func updateURLTimestamp(timestamp int64, name string, url string, body io.Reader) io.Reader {
 	dec := expfmt.NewDecoder(body, expfmt.FmtText)
-	var b bytes.Buffer
-	w := bufio.NewWriter(&b)
+	pr, pw := io.Pipe()
+	//ts := timestamp * 1000
 
-	for {
-		var metrics dto.MetricFamily
-		err := dec.Decode(&metrics)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			logrus.Error(err)
-			break
-		}
-
-		lpName := "scrapeURL"
-		lpValue := "test"
-
-		for _, metric := range metrics.GetMetric() {
-			metric.TimestampMs = &timestamp
-			lp := dto.LabelPair{
-				Name:  &lpName,
-				Value: &lpValue,
+	go func() {
+		for {
+			var metrics dto.MetricFamily
+			err := dec.Decode(&metrics)
+			if err == io.EOF {
+				break
 			}
-			metric.Label = append(metric.Label, &lp)
+			if err != nil {
+				logrus.Error(err)
+				break
+			}
+
+			lpName := "service"
+			urlName := "url"
+
+			for _, metric := range metrics.GetMetric() {
+				lp := dto.LabelPair{
+					Name:  &lpName,
+					Value: &name,
+				}
+				metric.Label = append(metric.Label, &lp)
+				urlp := dto.LabelPair{
+					Name:  &urlName,
+					Value: &url,
+				}
+				metric.Label = append(metric.Label, &urlp)
+			}
+
+			enc := expfmt.NewEncoder(pw, expfmt.FmtText)
+
+			enc.Encode(&metrics)
 		}
+		pw.Close()
+	}()
 
-		enc := expfmt.NewEncoder(w, expfmt.FmtText)
-
-		enc.Encode(&metrics)
-	}
-
-	return b.Bytes()
+	return pr
 }
 
 func main() {
@@ -185,16 +191,12 @@ func main() {
 			logrus.Error(err)
 			return
 		}
-		bytes := updateURLTimestamp(frame.Header.Timestamp, frame.NameString(), frame.URIString(), response.Body)
-		// TODO: here create a prefill nd output them
-		//_, err = sout.Write(bytes)
-		//if err != nil {
-		//	logrus.Error(err)
-		//}
+		bytesReader := updateURLTimestamp(frame.Header.Timestamp, frame.NameString(), frame.URIString(), response.Body)
+
 		sdec := expfmt.SampleDecoder{
-			Dec: expfmt.NewDecoder(filebuffer.New(bytes), expfmt.FmtText),
+			Dec: expfmt.NewDecoder(bytesReader, expfmt.FmtText),
 			Opts: &expfmt.DecodeOptions{
-				Timestamp: model.Now(),
+				Timestamp: model.TimeFromUnix(frame.Header.Timestamp),
 			},
 		}
 
