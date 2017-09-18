@@ -118,7 +118,7 @@ func updateURLTimestamp(timestamp int64, name string, url string, body io.Reader
 				break
 			}
 
-			lpName := "service"
+			lpName := "job"
 			urlName := "url"
 
 			for _, metric := range metrics.GetMetric() {
