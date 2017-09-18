@@ -15,7 +15,7 @@ usage: promrec [<flags>]
 Flags:
       --help              Show context-sensitive help (also try --help-long and --help-man).
       --debug             Enable debug mode.
-      --gzip              Disable gzip mode.
+      --gzip              Enable gzip mode.
   -i, --interval=60s      Timeout waiting for ping.
   -u, --umap=UMAP ...     stringmap [eg. service.name=http://get.uri:port/uri].
   -o, --output="metrics"  Output file.
@@ -34,11 +34,11 @@ Flags:
   -d, --dir="/tmp"           Input directory.
       --version              Show application version.
       --storage.path="data"  Directory path to create and fill the data store under.
-      --storage.retention-period=360h  
+      --storage.retention-period=360h
                              Period of time to store data for
-      --storage.checkpoint-interval=30m  
+      --storage.checkpoint-interval=30m
                              Period of time to store data for
-      --storage.checkpoint-dirty-series-limit=10000  
+      --storage.checkpoint-dirty-series-limit=10000
                              Period of time to store data for
 ```
 

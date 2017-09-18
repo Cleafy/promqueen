@@ -18,7 +18,6 @@ import (
 	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/storage/local"
-	"github.com/ropes/go-linker-vars-example/src/version"
 	"github.com/sirupsen/logrus"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 	filetype "gopkg.in/h2non/filetype.v1"
@@ -39,7 +38,7 @@ var (
 	nopromcfg        = kingpin.Flag("nopromcfg", "Disable the generation of the prometheus cfg file (prometheus.yml)").Bool()
 	dir              = kingpin.Flag("dir", "Input directory.").Short('d').OverrideDefaultFromEnvar("INPUT_DIRECTORY").Default(".").String()
 	framereader      = make(<-chan cm.Frame)
-	Version          = version.GitTag
+	Version          = "unversioned"
 	cfgMemoryStorage = local.MemorySeriesStorageOptions{
 		MemoryChunks:       1024,
 		MaxChunksToPersist: 1024,
