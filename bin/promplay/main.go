@@ -238,10 +238,8 @@ func main() {
 	// Generate the prometheus.yml in case it does not exist
 	promcfgpath := cfgMemoryStorage.PersistenceStoragePath + "/../prometheus.yml"
 	if _, err := os.Stat(promcfgpath); os.IsNotExist(err) && !*nopromcfg {
-		if f, err := os.Create(promcfgpath); err != nil {
-			defer f.Close()
-			w := bufio.NewWriter(f)
-			w.WriteString("global: {}")
+		if err = ioutil.WriteFile(promcfgpath, []byte("global: {}"), os.ModeExclusive|0644); err != nil {
+			logrus.Error(err)
 		}
 	}
 
