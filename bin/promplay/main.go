@@ -11,8 +11,7 @@ import (
 	"sort"
 	"time"
 
-	cm "cleafy.com/replayer/model"
-
+	cm "github.com/Cleafy/promqueen/model"
 	"github.com/mattetti/filebuffer"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"

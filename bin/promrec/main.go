@@ -4,13 +4,11 @@ import (
 	"compress/gzip"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"time"
 
-	"cleafy.com/replayer/model"
-
-	"net/http/httputil"
-
+	"github.com/cleafy/promqueen/model"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
