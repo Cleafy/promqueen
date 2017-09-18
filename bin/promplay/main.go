@@ -36,6 +36,7 @@ func replayMatcher(buf []byte) bool {
 
 var (
 	debug            = kingpin.Flag("debug", "Enable debug mode.").Bool()
+	nopromcfg        = kingpin.Flag("nopromcfg", "Disable the generation of the prometheus cfg file (prometheus.yml)").Bool()
 	dir              = kingpin.Flag("dir", "Input directory.").Short('d').OverrideDefaultFromEnvar("INPUT_DIRECTORY").Default("/tmp").String()
 	framereader      = make(<-chan cm.Frame)
 	version          = "0.0.1"
@@ -234,5 +235,15 @@ func main() {
 			}
 		}
 	}
+	// Generate the prometheus.yml in case it does not exist
+	promcfgpath := cfgMemoryStorage.PersistenceStoragePath + "/../prometheus.yml"
+	if _, err := os.Stat(promcfgpath); os.IsNotExist(err) && !*nopromcfg {
+		if f, err := os.Create(promcfgpath); err != nil {
+			defer f.Close()
+			w := bufio.NewWriter(f)
+			w.WriteString("global: {}")
+		}
+	}
+
 	logrus.Info("Exiting! :)")
 }
