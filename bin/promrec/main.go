@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cleafy/promqueen/model"
+	"github.com/ropes/go-linker-vars-example/src/version"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -19,7 +20,7 @@ var (
 	interval   = kingpin.Flag("interval", "Timeout waiting for ping.").Default("60s").OverrideDefaultFromEnvar("ACTION_INTERVAL").Short('i').Duration()
 	umap       = kingpin.Flag("umap", "stringmap [eg. service.name=http://get.uri:port/uri].").Short('u').StringMap()
 	output     = kingpin.Flag("output", "Output file.").Short('o').OverrideDefaultFromEnvar("OUTPUT_FILE").Default("metrics").String()
-	version    = "0.0.1"
+	Version    = version.GitTag
 	filewriter io.WriteCloser
 )
 
@@ -50,7 +51,7 @@ func writerFor() (io.Writer, error) {
 }
 
 func main() {
-	kingpin.Version(version)
+	kingpin.Version(Version)
 	kingpin.Parse()
 
 	if *debug {

@@ -11,13 +11,14 @@ import (
 	"sort"
 	"time"
 
-	cm "github.com/Cleafy/promqueen/model"
+	cm "github.com/cleafy/promqueen/model"
 	"github.com/mattetti/filebuffer"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/storage/local"
+	"github.com/ropes/go-linker-vars-example/src/version"
 	"github.com/sirupsen/logrus"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 	filetype "gopkg.in/h2non/filetype.v1"
@@ -38,7 +39,7 @@ var (
 	nopromcfg        = kingpin.Flag("nopromcfg", "Disable the generation of the prometheus cfg file (prometheus.yml)").Bool()
 	dir              = kingpin.Flag("dir", "Input directory.").Short('d').OverrideDefaultFromEnvar("INPUT_DIRECTORY").Default(".").String()
 	framereader      = make(<-chan cm.Frame)
-	version          = "0.0.1"
+	Version          = version.GitTag
 	cfgMemoryStorage = local.MemorySeriesStorageOptions{
 		MemoryChunks:       1024,
 		MaxChunksToPersist: 1024,
@@ -144,7 +145,7 @@ func updateURLTimestamp(timestamp int64, name string, url string, body io.Reader
 }
 
 func main() {
-	kingpin.Version(version)
+	kingpin.Version(Version)
 
 	kingpin.Flag("storage.path", "Directory path to create and fill the data store under.").Default("data").StringVar(&cfgMemoryStorage.PersistenceStoragePath)
 	kingpin.Flag("storage.retention-period", "Period of time to store data for").Default("360h").DurationVar(&cfgMemoryStorage.PersistenceRetentionPeriod)

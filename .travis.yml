@@ -1,0 +1,29 @@
+language: go
+go:
+- 1.8
+install:
+- go get -u github.com/golang/dep/cmd/dep
+- dep ensure
+script:
+- go test -v github.com/Cleafy/promqueen/model
+- GOOS=linux GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promrec.elf" -a -ldflags "-extldflags '-static' -X github.com/ropes/go-linker-vars-example/src/version.GitTag=$(git describe --tags) -X github.com/ropes/go-linker-vars-example/src/version.BuildUser=${USER} -X github.com/ropes/go-linker-vars-example/src/version.Version=$(git describe --tags --abbrev=0)" github.com/Cleafy/promqueen/bin/promrec
+- GOOS=linux GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promplay.elf" -a -ldflags "-extldflags '-static' -X github.com/ropes/go-linker-vars-example/src/version.GitTag=$(git describe --tags) -X github.com/ropes/go-linker-vars-example/src/version.BuildUser=${USER} -X github.com/ropes/go-linker-vars-example/src/version.Version=$(git describe --tags --abbrev=0)" github.com/Cleafy/promqueen/bin/promplay
+- GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promrec.exe" -a -ldflags "-extldflags '-static' -X github.com/ropes/go-linker-vars-example/src/version.GitTag=$(git describe --tags) -X github.com/ropes/go-linker-vars-example/src/version.BuildUser=${USER} -X github.com/ropes/go-linker-vars-example/src/version.Version=$(git describe --tags --abbrev=0)" github.com/Cleafy/promqueen/bin/promrec
+- GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promplay.exe" -a -ldflags "-extldflags '-static'-X github.com/ropes/go-linker-vars-example/src/version.GitTag=$(git describe --tags) -X github.com/ropes/go-linker-vars-example/src/version.BuildUser=${USER} -X github.com/ropes/go-linker-vars-example/src/version.Version=$(git describe --tags --abbrev=0)" github.com/Cleafy/promqueen/bin/promplay
+- GOOS=darwin GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promrec" -a -ldflags "-extldflags '-static' -X github.com/ropes/go-linker-vars-example/src/version.GitTag=$(git describe --tags) -X github.com/ropes/go-linker-vars-example/src/version.BuildUser=${USER} -X github.com/ropes/go-linker-vars-example/src/version.Version=$(git describe --tags --abbrev=0)" github.com/Cleafy/promqueen/bin/promrec
+- GOOS=darwin GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promplay" -a -ldflags "-extldflags '-static' -X github.com/ropes/go-linker-vars-example/src/version.GitTag=$(git describe --tags) -X github.com/ropes/go-linker-vars-example/src/version.BuildUser=${USER} -X github.com/ropes/go-linker-vars-example/src/version.Version=$(git describe --tags --abbrev=0)" github.com/Cleafy/promqueen/bin/promplay
+deploy:
+  provider: releases
+  api_key:
+    secure: G1FtHnchisi9145HM8gA6v7X+JzKO7kD3dL12OPegMVOVnjE5c73aMDALuqogl0c4N00IAlrMoj1NaddW0xQKYULqG0X3mswVA3Bmgcrl93XKAxCmymzYZSoq1Q2vcehXihmbpZQfl76DPrJwKIYrFWVtJoE9tH3yrkxpsGmTh3YgLtRr1PpCuUE5xFILDwEu1AsIlQeMzLxERkykSSMq2iNtABPsaPKLU0NUmkN4/WM2i/7bzMQE+lYQnZe7p3TjTf7/+9ht9KyHWH49I+6kTDsANMTH+Q6tHZNggBTtSloStCQmm1L7IQkIpYw3gDzVNfNQWuhKwICE0Z8iWX3VFKiolRSC9nfuf6LEaNyFvMhB7wcf+9rF5thZVf+cZVjh7wSGoYPAPvh3ld0vm35uX0B7MA6LjAFNbURpt8no1urNuJirTzyP9H6Ym0KfOCjWLxDtUIDzZZ89zieP1atoaCmP+/4rbS74p0WPp32OnrY6uAym9TQPuHWp7S3Iq9DBOHxHidFEC4pmWJgT4wD5fDQk/g2kleidtcq28sPVrxKUZFyN578z9FIEi80AHkl8bL4iKLFDFsklt8IyWodl6rbx0flFosjVJ1rUr+IDMuFxmnkJbHamg2W5fysbtHplWDpODlDj2KQyYJC4ltZyDe4TS4sGr9wwQKoGNEphWU=
+  file:
+    - "$GOPATH/bin/promrec"
+    - "$GOPATH/bin/promplay"
+    - "$GOPATH/bin/promrec.elf"
+    - "$GOPATH/bin/promplay.elf"
+    - "$GOPATH/bin/promrec.exe"
+    - "$GOPATH/bin/promplay.exe"
+  on:
+    repo: Cleafy/promqueen
+    branch: master
+    tags: true
