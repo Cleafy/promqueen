@@ -37,7 +37,7 @@ func replayMatcher(buf []byte) bool {
 var (
 	debug            = kingpin.Flag("debug", "Enable debug mode.").Bool()
 	nopromcfg        = kingpin.Flag("nopromcfg", "Disable the generation of the prometheus cfg file (prometheus.yml)").Bool()
-	dir              = kingpin.Flag("dir", "Input directory.").Short('d').OverrideDefaultFromEnvar("INPUT_DIRECTORY").Default("/tmp").String()
+	dir              = kingpin.Flag("dir", "Input directory.").Short('d').OverrideDefaultFromEnvar("INPUT_DIRECTORY").Default(".").String()
 	framereader      = make(<-chan cm.Frame)
 	version          = "0.0.1"
 	cfgMemoryStorage = local.MemorySeriesStorageOptions{
