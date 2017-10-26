@@ -15,7 +15,6 @@ import (
 	"github.com/mattetti/filebuffer"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
-	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/storage/local"
 	"github.com/sirupsen/logrus"
@@ -159,19 +158,19 @@ func main() {
 		flag.Set("log.level", "debug")
 	}
 
-	log.Infoln("Prefilling into", cfgMemoryStorage.PersistenceStoragePath)
+	logrus.Infoln("Prefilling into", cfgMemoryStorage.PersistenceStoragePath)
 	localStorage := local.NewMemorySeriesStorage(&cfgMemoryStorage)
 
 	sampleAppender := localStorage
 
-	log.Infoln("Starting the storage engine")
+	logrus.Infoln("Starting the storage engine")
 	if err := localStorage.Start(); err != nil {
-		log.Errorln("Error opening memory series storage:", err)
+		logrus.Errorln("Error opening memory series storage:", err)
 		os.Exit(1)
 	}
 	defer func() {
 		if err := localStorage.Stop(); err != nil {
-			log.Errorln("Error stopping storage:", err)
+			logrus.Errorln("Error stopping storage:", err)
 		}
 	}()
 
@@ -203,14 +202,14 @@ func main() {
 		decSamples := make(model.Vector, 0, 1)
 
 		if err := sdec.Decode(&decSamples); err != nil {
-			log.Errorln("Could not decode metric:", err)
+			logrus.Errorln("Could not decode metric:", err)
 			continue
 		}
 
-		log.Debugln("Ingested", len(decSamples), "metrics")
+		logrus.Debugln("Ingested", len(decSamples), "metrics")
 
 		for sampleAppender.NeedsThrottling() {
-			log.Debugln("Waiting 100ms for appender to be ready for more data")
+			logrus.Debugln("Waiting 100ms for appender to be ready for more data")
 			time.Sleep(time.Millisecond * 100)
 		}
 
@@ -224,12 +223,12 @@ func main() {
 				switch err {
 				case local.ErrOutOfOrderSample:
 					numOutOfOrder++
-					log.With("sample", s).With("error", err).Info("Sample discarded")
+					logrus.With("sample", s).With("error", err).Info("Sample discarded")
 				case local.ErrDuplicateSampleForTimestamp:
 					numDuplicates++
-					log.With("sample", s).With("error", err).Info("Sample discarded")
+					logrus.With("sample", s).With("error", err).Info("Sample discarded")
 				default:
-					log.With("sample", s).With("error", err).Info("Sample discarded")
+					logrus.With("sample", s).With("error", err).Info("Sample discarded")
 				}
 			}
 		}
