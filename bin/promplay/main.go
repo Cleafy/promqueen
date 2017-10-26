@@ -223,12 +223,21 @@ func main() {
 				switch err {
 				case local.ErrOutOfOrderSample:
 					numOutOfOrder++
-					logrus.With("sample", s).With("error", err).Info("Sample discarded")
+					logrus.WithFields(logrus.Fields{
+						"sample": s,
+						"error":  err,
+					}).Info("Sample discarded")
 				case local.ErrDuplicateSampleForTimestamp:
 					numDuplicates++
-					logrus.With("sample", s).With("error", err).Info("Sample discarded")
+					logrus.WithFields(logrus.Fields{
+						"sample": s,
+						"error":  err,
+					}).Info("Sample discarded")
 				default:
-					logrus.With("sample", s).With("error", err).Info("Sample discarded")
+					logrus.WithFields(logrus.Fields{
+						"sample": s,
+						"error":  err,
+					}).Info("Sample discarded")
 				}
 			}
 		}
