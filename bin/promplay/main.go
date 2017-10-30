@@ -102,9 +102,12 @@ func generateFramereader() {
 func updateURLTimestamp(timestamp int64, name string, url string, body io.Reader) io.Reader {
 	dec := expfmt.NewDecoder(body, expfmt.FmtText)
 	pr, pw := io.Pipe()
+	enc := expfmt.NewEncoder(pw, expfmt.FmtText)
 	//ts := timestamp * 1000
 
 	go func() {
+		count := 0
+
 		for {
 			var metrics dto.MetricFamily
 			err := dec.Decode(&metrics)
@@ -132,10 +135,12 @@ func updateURLTimestamp(timestamp int64, name string, url string, body io.Reader
 				metric.Label = append(metric.Label, &urlp)
 			}
 
-			enc := expfmt.NewEncoder(pw, expfmt.FmtText)
-
 			enc.Encode(&metrics)
+
+			count += 1
 		}
+
+		logrus.Printf("%d metrics unmarshalled for %s", count, url)
 		pw.Close()
 	}()
 
@@ -200,13 +205,13 @@ func main() {
 		}
 
 		decSamples := make(model.Vector, 0, 1)
+		tempSamples := make(model.Vector, 0, 1)
 
-		if err := sdec.Decode(&decSamples); err != nil {
-			logrus.Errorln("Could not decode metric:", err)
-			continue
+		for err := sdec.Decode(&tempSamples); err == nil; err = sdec.Decode(&tempSamples) {
+			decSamples = append(decSamples, tempSamples...)
 		}
 
-		logrus.Debugln("Ingested", len(decSamples), "metrics")
+		logrus.Infoln("Ingested", len(decSamples), "metrics")
 
 		for sampleAppender.NeedsThrottling() {
 			logrus.Debugln("Waiting 100ms for appender to be ready for more data")

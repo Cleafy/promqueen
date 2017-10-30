@@ -86,12 +86,6 @@
   version = "v1.5.3"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/ropes/go-linker-vars-example"
-  packages = ["src/version"]
-  revision = "4d2722ea9b879f2bbcb2c7012b1694fb878a068e"
-
-[[projects]]
   name = "github.com/sirupsen/logrus"
   packages = ["."]
   revision = "f006c2ac4710855cf0f916dd6b77acf6b048dc6e"
@@ -142,6 +136,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2f89ccf22d9569212d4d2e566b6e6f05d1d5566589f92308670ae94801caac77"
+  inputs-digest = "f6ea5c1f6b23c7b511ffeb67f68aaafb3d6a615ba58a778911e601f004db41c5"
   solver-name = "gps-cdcl"
   solver-version = 1
