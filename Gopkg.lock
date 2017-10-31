@@ -27,6 +27,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/erikdubbelboer/gspt"
+  packages = ["."]
+  revision = "1413420207d2f210b0a7839ba51178e0781d437f"
+
+[[projects]]
+  branch = "master"
   name = "github.com/golang/protobuf"
   packages = ["proto"]
   revision = "11b8df160996e00fd4b55cbaafb3d84ec6d50fa8"
@@ -136,6 +142,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f6ea5c1f6b23c7b511ffeb67f68aaafb3d6a615ba58a778911e601f004db41c5"
+  inputs-digest = "b83b4cb9e64d3b72018d664fcec84e59a7ffdfd53200eb2b6d2ce9a73a8b85f3"
   solver-name = "gps-cdcl"
   solver-version = 1

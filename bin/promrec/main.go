@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cleafy/promqueen/model"
+	"github.com/erikdubbelboer/gspt"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -61,6 +62,8 @@ func main() {
 		kingpin.Usage()
 		return
 	}
+
+	gspt.SetProcTitle("promrec")
 
 	ticker := time.NewTicker(*interval)
 
