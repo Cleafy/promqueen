@@ -39,8 +39,8 @@ var (
 	framereader      = make(<-chan cm.Frame)
 	Version          = "unversioned"
 	cfgMemoryStorage = local.MemorySeriesStorageOptions{
-		//MemoryChunks:       1024,
-		//MaxChunksToPersist: 1024,
+		MemoryChunks:       1024,
+		MaxChunksToPersist: 1024,
 		//PersistenceStoragePath:
 		//PersistenceRetentionPeriod:
 		//CheckpointInterval:         time.Minute*30,
