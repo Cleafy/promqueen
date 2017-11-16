@@ -5,13 +5,13 @@ install:
 - go get -u github.com/golang/dep/cmd/dep
 - dep ensure
 script:
-- go test -v github.com/Cleafy/promqueen/model
-- GOOS=linux GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promrec.elf" -a -ldflags "-extldflags '-static' -X main.Version=$(git describe --tags --abbrev=0)" github.com/Cleafy/promqueen/bin/promrec
-- GOOS=linux GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promplay.elf" -a -ldflags "-extldflags '-static' -X main.Version=$(git describe --tags --abbrev=0)" github.com/Cleafy/promqueen/bin/promplay
-- GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promrec.exe" -a -ldflags "-extldflags '-static' -X main.Version=$(git describe --tags --abbrev=0)" github.com/Cleafy/promqueen/bin/promrec
-- GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promplay.exe" -a -ldflags "-extldflags '-static'-X main.Version=$(git describe --tags --abbrev=0)" github.com/Cleafy/promqueen/bin/promplay
-- GOOS=darwin GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promrec" -a -ldflags "-extldflags '-static' -X main.Version=$(git describe --tags --abbrev=0)" github.com/Cleafy/promqueen/bin/promrec
-- GOOS=darwin GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promplay" -a -ldflags "-extldflags '-static' -X main.Version=$(git describe --tags --abbrev=0)" github.com/Cleafy/promqueen/bin/promplay
+- go test -v github.com/cleafy/promqueen/model
+- GOOS=linux GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promrec.elf" -a -ldflags "-extldflags '-static' -X main.Version=$(git describe --tags --abbrev=0)" github.com/cleafy/promqueen/bin/promrec
+- GOOS=linux GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promplay.elf" -a -ldflags "-extldflags '-static' -X main.Version=$(git describe --tags --abbrev=0)" github.com/cleafy/promqueen/bin/promplay
+- GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promrec.exe" -a -ldflags "-extldflags '-static' -X main.Version=$(git describe --tags --abbrev=0)" github.com/cleafy/promqueen/bin/promrec
+- GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promplay.exe" -a -ldflags "-extldflags '-static'-X main.Version=$(git describe --tags --abbrev=0)" github.com/cleafy/promqueen/bin/promplay
+- GOOS=darwin GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promrec" -a -ldflags "-extldflags '-static' -X main.Version=$(git describe --tags --abbrev=0)" github.com/cleafy/promqueen/bin/promrec
+- GOOS=darwin GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promplay" -a -ldflags "-extldflags '-static' -X main.Version=$(git describe --tags --abbrev=0)" github.com/cleafy/promqueen/bin/promplay
 deploy:
   provider: releases
   api_key:
@@ -24,6 +24,6 @@ deploy:
     - "$GOPATH/bin/promrec.exe"
     - "$GOPATH/bin/promplay.exe"
   on:
-    repo: Cleafy/promqueen
+    repo: cleafy/promqueen
     branch: master
     tags: true
