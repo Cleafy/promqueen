@@ -7,7 +7,40 @@
 - `promrec` tapes the metrics in a specified output file.
 - `promplay` backfills the _prometheus_ database from scratch.
 
-## PromREC
+## Build instructions (Linux/OSX)
+
+Clone this repository in your **$GOPATH**:
+
+```
+$ mkdir -p $GOPATH/src/github.com/Cleafy
+$ cd $GOPATH/src/github.com/Cleafy
+$ git clone https://github.com/Cleafy/promqueen.git
+```
+
+Use Go package manager ***dep*** to install the required dependencies:
+
+```
+$ cd $GOPATH/src/github.com/Cleafy/promqueen
+$ dep ensure
+```
+
+To build `promrec`:
+
+```
+$ cd $GOPATH/src/github.com/Cleafy/promqueen/bin/promrec
+$ go build
+```
+
+To build `promplay`:
+
+```
+$ cd $GOPATH/src/github.com/Cleafy/promqueen/bin/promplay
+$ go build
+```
+
+## Usage
+
+### PromREC
 
 ```
 usage: promrec [<flags>]
@@ -22,7 +55,7 @@ Flags:
       --version           Show application version.
 ```
 
-## PromPLAY
+### PromPLAY
 
 ```
 usage: promplay [<flags>]
