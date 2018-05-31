@@ -33,12 +33,14 @@ func replayMatcher(buf []byte) bool {
 }
 
 var (
-	debug            = kingpin.Flag("debug", "Enable debug mode.").Bool()
-	nopromcfg        = kingpin.Flag("nopromcfg", "Disable the generation of the prometheus cfg file (prometheus.yml)").Bool()
-	dir              = kingpin.Flag("dir", "Input directory.").Short('d').OverrideDefaultFromEnvar("INPUT_DIRECTORY").Default(".").String()
-	framereader      = make(<-chan cm.Frame)
-	Version          = "unversioned"
-	cfgMemoryStorage = local.MemorySeriesStorageOptions{
+	debug             = kingpin.Flag("debug", "Enable debug mode.").Bool()
+	nopromcfg         = kingpin.Flag("nopromcfg", "Disable the generation of the prometheus cfg file (prometheus.yml)").Bool()
+	dir               = kingpin.Flag("dir", "Input directory.").Short('d').OverrideDefaultFromEnvar("INPUT_DIRECTORY").Default(".").String()
+	memoryChunk       = kingpin.Flag("memoryChunk", "Maximum number of chunks in memory").Default("100000000").Int()
+	maxChunkToPersist = kingpin.Flag("mexChunkToPersist", "Maximum number of chunks waiting, in memory, to be written on the disk").Default("100000000").Int()
+	framereader       = make(<-chan cm.Frame)
+	Version           = "unversioned"
+	cfgMemoryStorage  = local.MemorySeriesStorageOptions{
 		MemoryChunks:       1024,
 		MaxChunksToPersist: 1024,
 		//PersistenceStoragePath:
@@ -164,6 +166,10 @@ func main() {
 	}
 
 	logrus.Infoln("Prefilling into", cfgMemoryStorage.PersistenceStoragePath)
+
+	cfgMemoryStorage.MaxChunksToPersist = *maxChunkToPersist
+	cfgMemoryStorage.MemoryChunks = *memoryChunk
+
 	localStorage := local.NewMemorySeriesStorage(&cfgMemoryStorage)
 
 	sampleAppender := localStorage
