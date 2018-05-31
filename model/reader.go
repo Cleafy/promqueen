@@ -30,7 +30,6 @@ func NewMultiReader(r []io.Reader) <-chan Frame {
 		}
 		logrus.Infof("Frames ended")
 	}()
-
 	return chframe
 }
 
@@ -87,6 +86,12 @@ func ReadFrameHeader(r io.Reader) (*FrameHeader, error) {
 // ReadFrame reads the next frame from the Reader or returns an error in
 // case it cannot interpret the Frame
 func ReadFrame(r io.Reader) (frame *Frame, err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			logrus.Errorf("Malformed file, current frame is skipped: %v", e)
+		}
+	}()
+
 	frame = NewEmptyFrame()
 	frame.Header, err = ReadFrameHeader(r)
 

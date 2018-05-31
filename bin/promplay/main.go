@@ -11,7 +11,8 @@ import (
 	"sort"
 	"time"
 
-	cm "github.com/cleafy/promqueen/model"
+	cm "github.com/Cleafy/promqueen/model"
+
 	"github.com/mattetti/filebuffer"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
@@ -34,6 +35,7 @@ func replayMatcher(buf []byte) bool {
 
 var (
 	debug             = kingpin.Flag("debug", "Enable debug mode.").Bool()
+	error             = kingpin.Flag("error", "Enable error-only mode.").Default("false").Bool()
 	nopromcfg         = kingpin.Flag("nopromcfg", "Disable the generation of the prometheus cfg file (prometheus.yml)").Bool()
 	dir               = kingpin.Flag("dir", "Input directory.").Short('d').OverrideDefaultFromEnvar("INPUT_DIRECTORY").Default(".").String()
 	memoryChunk       = kingpin.Flag("memoryChunk", "Maximum number of chunks in memory").Default("100000000").Int()
@@ -41,8 +43,8 @@ var (
 	framereader       = make(<-chan cm.Frame)
 	Version           = "unversioned"
 	cfgMemoryStorage  = local.MemorySeriesStorageOptions{
-		MemoryChunks:       1024,
-		MaxChunksToPersist: 1024,
+		MemoryChunks:       0,
+		MaxChunksToPersist: 0,
 		//PersistenceStoragePath:
 		//PersistenceRetentionPeriod:
 		//CheckpointInterval:         time.Minute*30,
@@ -163,6 +165,11 @@ func main() {
 	if *debug {
 		logrus.SetLevel(logrus.DebugLevel)
 		flag.Set("log.level", "debug")
+	}
+
+	if *error {
+		logrus.SetLevel(logrus.ErrorLevel)
+		flag.Set("log.level", "error")
 	}
 
 	logrus.Infoln("Prefilling into", cfgMemoryStorage.PersistenceStoragePath)
