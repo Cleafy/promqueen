@@ -27,10 +27,11 @@ var replayType = filetype.NewType("rep", "application/replay")
 
 func replayMatcher(buf []byte) bool {
 	header, err := cm.ReadFrameHeader(filebuffer.New(buf))
-	if err != nil {
-		return false
+	if err == nil {
+		return cm.CheckVersion(header)
 	}
-	return cm.CheckVersion(header)
+	logrus.Errorf("Malformed frame header!")
+	return false
 }
 
 var (
@@ -64,10 +65,16 @@ func osfile2fname(fss []os.FileInfo, dir string) []string {
 }
 
 func generateFramereader() {
+	defer func() {
+		if e := recover(); e != nil {
+			logrus.Errorf("Frame reader generation failed!, MESSAGE: %v", e)
+		}
+	}()
+
 	// 1. Check for every file that is GZip or csave format and create the filemap
 	files, err := ioutil.ReadDir(*dir)
 	if err != nil {
-		logrus.Fatalf("generateFilemap: %v", err)
+		panic(err)
 	}
 	readers := make([]io.Reader, 0)
 
@@ -88,14 +95,24 @@ func generateFramereader() {
 		}
 
 		if ftype.MIME.Value == "application/gzip" {
-			f, _ := os.Open(filepath)
+			f, err1 := os.Open(filepath)
 			logrus.Debugf("reading header: %v", filepath)
-			gz, _ := gzip.NewReader(f)
-			header, err := cm.ReadFrameHeader(gz)
-			if err == nil && cm.CheckVersion(header) {
+			gz, err2 := gzip.NewReader(f)
+			header, err3 := cm.ReadFrameHeader(gz)
+			if err1 == nil && err2 == nil && err3 == nil && cm.CheckVersion(header) {
 				f.Seek(0, io.SeekStart)
 				gz, _ = gzip.NewReader(f)
 				readers = append(readers, gz)
+			} else {
+				if err1 != nil {
+					panic(err1)
+				}
+				if err2 != nil {
+					panic(err2)
+				}
+				if err3 != nil {
+					panic(err3)
+				}
 			}
 		}
 	}
@@ -141,7 +158,7 @@ func updateURLTimestamp(timestamp int64, name string, url string, body io.Reader
 
 			enc.Encode(&metrics)
 
-			count += 1
+			count++
 		}
 
 		logrus.Printf("%d metrics unmarshalled for %s", count, url)
@@ -152,6 +169,7 @@ func updateURLTimestamp(timestamp int64, name string, url string, body io.Reader
 }
 
 func main() {
+
 	kingpin.Version(Version)
 
 	kingpin.Flag("storage.path", "Directory path to create and fill the data store under.").Default("data").StringVar(&cfgMemoryStorage.PersistenceStoragePath)
@@ -205,8 +223,8 @@ func main() {
 	for frame := range framereader {
 		response, err := http.ReadResponse(bufio.NewReader(filebuffer.New(frame.Data)), r)
 		if err != nil {
-			logrus.Error(err)
-			return
+			logrus.Errorf("Errors occured while reading frame %d, MESSAGE: %v", frame.NameString, err)
+			continue
 		}
 		bytesReader := updateURLTimestamp(frame.Header.Timestamp, frame.NameString(), frame.URIString(), response.Body)
 
@@ -227,7 +245,7 @@ func main() {
 		logrus.Infoln("Ingested", len(decSamples), "metrics")
 
 		for sampleAppender.NeedsThrottling() {
-			logrus.Debugln("Waiting 100ms for appender to be ready for more data")
+			logrus.Debugln("THROTTLING: Waiting 100ms for appender to be ready for more data")
 			time.Sleep(time.Millisecond * 100)
 		}
 
@@ -244,18 +262,18 @@ func main() {
 					logrus.WithFields(logrus.Fields{
 						"sample": s,
 						"error":  err,
-					}).Info("Sample discarded")
+					}).Error("Sample discarded")
 				case local.ErrDuplicateSampleForTimestamp:
 					numDuplicates++
 					logrus.WithFields(logrus.Fields{
 						"sample": s,
 						"error":  err,
-					}).Info("Sample discarded")
+					}).Error("Sample discarded")
 				default:
 					logrus.WithFields(logrus.Fields{
 						"sample": s,
 						"error":  err,
-					}).Info("Sample discarded")
+					}).Error("Sample discarded")
 				}
 			}
 		}

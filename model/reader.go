@@ -88,7 +88,7 @@ func ReadFrameHeader(r io.Reader) (*FrameHeader, error) {
 func ReadFrame(r io.Reader) (frame *Frame, err error) {
 	defer func() {
 		if e := recover(); e != nil {
-			logrus.Errorf("Malformed file, current frame is skipped: %v", e)
+			logrus.Errorf("Errors occured while reading frame %v, MESSAGE: %v", frame.NameString, e)
 		}
 	}()
 
@@ -96,7 +96,7 @@ func ReadFrame(r io.Reader) (frame *Frame, err error) {
 	frame.Header, err = ReadFrameHeader(r)
 
 	if err != nil {
-		return
+		panic(err)
 	}
 
 	// generate the correct framesize for .Data
@@ -105,14 +105,16 @@ func ReadFrame(r io.Reader) (frame *Frame, err error) {
 	// read the frame Data
 	data, err := readNextBytes(r, int64(len(frame.Data)))
 	if err != nil {
-		return
+		panic(err)
 	}
+
 	buffer := bytes.NewBuffer(data)
 
 	err = binary.Read(buffer, binary.BigEndian, frame.Data)
 	if err != nil {
-		return
+		panic(err)
 	}
+
 	logrus.Debugf("ReadFrame: frame.Data %d", frame.Data)
 
 	return
