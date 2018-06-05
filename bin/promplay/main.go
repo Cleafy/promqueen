@@ -8,7 +8,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	cm "github.com/Cleafy/promqueen/model"
@@ -79,45 +81,38 @@ func generateFramereader() {
 	readers := make([]io.Reader, 0)
 
 	fnames := osfile2fname(files, *dir)
-	sort.Sort(cm.ByNumber(fnames))
+	sort.Sort(sort.Reverse(cm.ByNumber(fnames)))
 
 	logrus.Debugf("fnames: %v", fnames)
 
-	for _, filepath := range fnames {
-		logrus.Debugf("filepath: %v", filepath)
-		ftype, err := filetype.MatchFile(filepath)
+	for _, path := range fnames {
+		logrus.Debugf("filepath: %v", path)
+		ftype, err := filetype.MatchFile(path)
 		if err != nil {
 			logrus.Debugf("err %v", err)
 		}
 		if ftype.MIME.Value == "application/replay" {
-			f, _ := os.Open(filepath)
+			f, _ := os.Open(path)
 			readers = append(readers, f)
 		}
 
 		if ftype.MIME.Value == "application/gzip" {
-			f, err1 := os.Open(filepath)
-			logrus.Debugf("reading header: %v", filepath)
-			gz, err2 := gzip.NewReader(f)
-			header, err3 := cm.ReadFrameHeader(gz)
-			if err1 == nil && err2 == nil && err3 == nil && cm.CheckVersion(header) {
-				f.Seek(0, io.SeekStart)
-				gz, _ = gzip.NewReader(f)
-				readers = append(readers, gz)
-			} else {
-				if err1 != nil {
-					panic(err1)
-				}
-				if err2 != nil {
-					panic(err2)
-				}
-				if err3 != nil {
-					panic(err3)
-				}
-			}
+			filename := filepath.Base(path)
+			ungzip(path, "./tmp/"+trimSuffix(filename, ".gz"))
+
+			f, _ := os.Open("./tmp/" + trimSuffix(filename, ".gz"))
+			readers = append(readers, f)
 		}
 	}
 
 	framereader = cm.NewMultiReader(readers)
+}
+
+func trimSuffix(s, suffix string) string {
+	if strings.HasSuffix(s, suffix) {
+		s = s[:len(s)-len(suffix)]
+	}
+	return s
 }
 
 func updateURLTimestamp(timestamp int64, name string, url string, body io.Reader) io.Reader {
@@ -168,6 +163,38 @@ func updateURLTimestamp(timestamp int64, name string, url string, body io.Reader
 	return pr
 }
 
+func ungzip(source, target string) {
+	defer func() {
+		if e := recover(); e != nil {
+			logrus.Errorf("Errors during decompression of %v", source)
+		}
+	}()
+
+	reader, err := os.Open(source)
+	if err != nil {
+		panic(err)
+	}
+	defer reader.Close()
+
+	archive, err := gzip.NewReader(reader)
+	if err != nil {
+		panic(err)
+	}
+	defer archive.Close()
+
+	target = filepath.Join(target, archive.Name)
+	writer, err := os.Create(target)
+	if err != nil {
+		panic(err)
+	}
+	defer writer.Close()
+
+	_, err = io.Copy(writer, archive)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func main() {
 
 	kingpin.Version(Version)
@@ -189,6 +216,9 @@ func main() {
 		logrus.SetLevel(logrus.ErrorLevel)
 		flag.Set("log.level", "error")
 	}
+
+	// create temp directory to store ungzipped files
+	os.Mkdir("./tmp", 0700)
 
 	logrus.Infoln("Prefilling into", cfgMemoryStorage.PersistenceStoragePath)
 
@@ -286,5 +316,7 @@ func main() {
 		}
 	}
 
+	// remove tmp dir
+	os.RemoveAll("./tmp")
 	logrus.Info("Exiting! :)")
 }
