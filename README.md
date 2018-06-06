@@ -62,7 +62,9 @@ usage: promplay [<flags>]
 
 Flags:
       --help                 Show context-sensitive help (also try --help-long and --help-man).
-      --debug                Enable debug mode.
+      --debug                Enable debug mode. (VERY VERBOSE!)
+      --verbose (-v)         Enable info-level message
+      --error                Enable error-only mode
       --nopromcfg            Disable the generation of the prometheus cfg file (prometheus.yml)
   -d, --dir="/tmp"           Input directory.
       --version              Show application version.

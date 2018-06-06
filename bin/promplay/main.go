@@ -22,6 +22,7 @@ import (
 	"github.com/prometheus/prometheus/storage/local"
 	"github.com/sirupsen/logrus"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	pb "gopkg.in/cheggaaa/pb.v2"
 	filetype "gopkg.in/h2non/filetype.v1"
 )
 
@@ -37,7 +38,8 @@ func replayMatcher(buf []byte) bool {
 }
 
 var (
-	debug             = kingpin.Flag("debug", "Enable debug mode.").Bool()
+	debug             = kingpin.Flag("debug", "Enable debug mode. More verbose than --verbose").Default("false").Bool()
+	verbose           = kingpin.Flag("verbose", "Enable info-only mode").Short('v').Default("false").Bool()
 	error             = kingpin.Flag("error", "Enable error-only mode.").Default("false").Bool()
 	nopromcfg         = kingpin.Flag("nopromcfg", "Disable the generation of the prometheus cfg file (prometheus.yml)").Bool()
 	dir               = kingpin.Flag("dir", "Input directory.").Short('d').OverrideDefaultFromEnvar("INPUT_DIRECTORY").Default(".").String()
@@ -66,13 +68,15 @@ func osfile2fname(fss []os.FileInfo, dir string) []string {
 	return out
 }
 
-func generateFramereader() {
+func generateFramereader() int {
 	defer func() {
 		if e := recover(); e != nil {
 			logrus.Errorf("Frame reader generation failed!, MESSAGE: %v", e)
 		}
 	}()
 
+	logrus.Infoln("Preliminary file read started...")
+	var count int = 0
 	// 1. Check for every file that is GZip or csave format and create the filemap
 	files, err := ioutil.ReadDir(*dir)
 	if err != nil {
@@ -93,19 +97,26 @@ func generateFramereader() {
 		}
 		if ftype.MIME.Value == "application/replay" {
 			f, _ := os.Open(path)
+
+			count += len(cm.ReadAll(f).Data)
+			f.Seek(0, 0)
+
 			readers = append(readers, f)
 		}
-
 		if ftype.MIME.Value == "application/gzip" {
 			filename := filepath.Base(path)
 			ungzip(path, "./tmp/"+trimSuffix(filename, ".gz"))
 
 			f, _ := os.Open("./tmp/" + trimSuffix(filename, ".gz"))
+
+			count += len(cm.ReadAll(f).Data)
+			f.Seek(0, 0)
+
 			readers = append(readers, f)
 		}
 	}
-
 	framereader = cm.NewMultiReader(readers)
+	return count
 }
 
 func trimSuffix(s, suffix string) string {
@@ -217,8 +228,14 @@ func main() {
 		flag.Set("log.level", "error")
 	}
 
+	if !*verbose {
+		logrus.SetLevel(logrus.FatalLevel)
+		flag.Set("log.level", "fatal")
+	}
+
 	// create temp directory to store ungzipped files
 	os.Mkdir("./tmp", 0700)
+	defer os.RemoveAll("./tmp")
 
 	logrus.Infoln("Prefilling into", cfgMemoryStorage.PersistenceStoragePath)
 
@@ -242,7 +259,8 @@ func main() {
 
 	filetype.AddMatcher(replayType, replayMatcher)
 
-	generateFramereader()
+	count := generateFramereader()
+
 	logrus.Debug("frameReader %+v", framereader)
 
 	sout := bufio.NewWriter(os.Stdout)
@@ -250,7 +268,11 @@ func main() {
 
 	r := &http.Request{}
 
+	bar := pb.ProgressBarTemplate(`{{ red "Frames processed:" }} {{bar . | green}} {{rtime . "ETA %s" | blue }} {{percent . }}`).Start(count)
+	defer bar.Finish()
+
 	for frame := range framereader {
+		bar.Increment()
 		response, err := http.ReadResponse(bufio.NewReader(filebuffer.New(frame.Data)), r)
 		if err != nil {
 			logrus.Errorf("Errors occured while reading frame %d, MESSAGE: %v", frame.NameString, err)
@@ -285,6 +307,7 @@ func main() {
 		)
 
 		for _, s := range model.Samples(decSamples) {
+
 			if err := sampleAppender.Append(s); err != nil {
 				switch err {
 				case local.ErrOutOfOrderSample:
@@ -316,7 +339,5 @@ func main() {
 		}
 	}
 
-	// remove tmp dir
-	os.RemoveAll("./tmp")
 	logrus.Info("Exiting! :)")
 }

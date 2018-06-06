@@ -88,7 +88,9 @@ func ReadFrameHeader(r io.Reader) (*FrameHeader, error) {
 func ReadFrame(r io.Reader) (frame *Frame, err error) {
 	defer func() {
 		if e := recover(); e != nil {
-			logrus.Errorf("Errors occured while reading frame %v, MESSAGE: %v", frame.NameString, e)
+			if e.(error).Error() != "EOF" {
+				logrus.Errorf("Errors occured while reading frame %v, MESSAGE: %v", frame.NameString, e)
+			}
 		}
 	}()
 
