@@ -40,7 +40,6 @@ func replayMatcher(buf []byte) bool {
 var (
 	debug             = kingpin.Flag("debug", "Enable debug mode. More verbose than --verbose").Default("false").Bool()
 	verbose           = kingpin.Flag("verbose", "Enable info-only mode").Short('v').Default("false").Bool()
-	error             = kingpin.Flag("error", "Enable error-only mode.").Default("false").Bool()
 	nopromcfg         = kingpin.Flag("nopromcfg", "Disable the generation of the prometheus cfg file (prometheus.yml)").Bool()
 	dir               = kingpin.Flag("dir", "Input directory.").Short('d').OverrideDefaultFromEnvar("INPUT_DIRECTORY").Default(".").String()
 	memoryChunk       = kingpin.Flag("memoryChunk", "Maximum number of chunks in memory").Default("100000000").Int()
@@ -223,14 +222,9 @@ func main() {
 		flag.Set("log.level", "debug")
 	}
 
-	if *error {
+	if !*verbose {
 		logrus.SetLevel(logrus.ErrorLevel)
 		flag.Set("log.level", "error")
-	}
-
-	if !*verbose {
-		logrus.SetLevel(logrus.FatalLevel)
-		flag.Set("log.level", "fatal")
 	}
 
 	// create temp directory to store ungzipped files
