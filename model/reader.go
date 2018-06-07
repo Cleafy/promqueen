@@ -30,7 +30,6 @@ func NewMultiReader(r []io.Reader) <-chan Frame {
 		}
 		logrus.Infof("Frames ended")
 	}()
-
 	return chframe
 }
 
@@ -87,11 +86,19 @@ func ReadFrameHeader(r io.Reader) (*FrameHeader, error) {
 // ReadFrame reads the next frame from the Reader or returns an error in
 // case it cannot interpret the Frame
 func ReadFrame(r io.Reader) (frame *Frame, err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			if e.(error).Error() != "EOF" {
+				logrus.Errorf("Errors occured while reading frame %v, MESSAGE: %v", frame.NameString, e)
+			}
+		}
+	}()
+
 	frame = NewEmptyFrame()
 	frame.Header, err = ReadFrameHeader(r)
 
 	if err != nil {
-		return
+		panic(err)
 	}
 
 	// generate the correct framesize for .Data
@@ -100,14 +107,16 @@ func ReadFrame(r io.Reader) (frame *Frame, err error) {
 	// read the frame Data
 	data, err := readNextBytes(r, int64(len(frame.Data)))
 	if err != nil {
-		return
+		panic(err)
 	}
+
 	buffer := bytes.NewBuffer(data)
 
 	err = binary.Read(buffer, binary.BigEndian, frame.Data)
 	if err != nil {
-		return
+		panic(err)
 	}
+
 	logrus.Debugf("ReadFrame: frame.Data %d", frame.Data)
 
 	return

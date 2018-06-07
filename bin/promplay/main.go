@@ -8,10 +8,13 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
-	cm "github.com/cleafy/promqueen/model"
+	cm "github.com/Cleafy/promqueen/model"
+
 	"github.com/mattetti/filebuffer"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
@@ -19,6 +22,7 @@ import (
 	"github.com/prometheus/prometheus/storage/local"
 	"github.com/sirupsen/logrus"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	pb "gopkg.in/cheggaaa/pb.v2"
 	filetype "gopkg.in/h2non/filetype.v1"
 )
 
@@ -26,21 +30,25 @@ var replayType = filetype.NewType("rep", "application/replay")
 
 func replayMatcher(buf []byte) bool {
 	header, err := cm.ReadFrameHeader(filebuffer.New(buf))
-	if err != nil {
-		return false
+	if err == nil {
+		return cm.CheckVersion(header)
 	}
-	return cm.CheckVersion(header)
+	logrus.Errorf("Malformed frame header!")
+	return false
 }
 
 var (
-	debug            = kingpin.Flag("debug", "Enable debug mode.").Bool()
-	nopromcfg        = kingpin.Flag("nopromcfg", "Disable the generation of the prometheus cfg file (prometheus.yml)").Bool()
-	dir              = kingpin.Flag("dir", "Input directory.").Short('d').OverrideDefaultFromEnvar("INPUT_DIRECTORY").Default(".").String()
-	framereader      = make(<-chan cm.Frame)
-	Version          = "unversioned"
-	cfgMemoryStorage = local.MemorySeriesStorageOptions{
-		MemoryChunks:       1024,
-		MaxChunksToPersist: 1024,
+	debug             = kingpin.Flag("debug", "Enable debug mode. More verbose than --verbose").Default("false").Bool()
+	verbose           = kingpin.Flag("verbose", "Enable info-only mode").Short('v').Default("false").Bool()
+	nopromcfg         = kingpin.Flag("nopromcfg", "Disable the generation of the prometheus cfg file (prometheus.yml)").Bool()
+	dir               = kingpin.Flag("dir", "Input directory.").Short('d').OverrideDefaultFromEnvar("INPUT_DIRECTORY").Default(".").String()
+	memoryChunk       = kingpin.Flag("memoryChunk", "Maximum number of chunks in memory").Default("100000000").Int()
+	maxChunkToPersist = kingpin.Flag("mexChunkToPersist", "Maximum number of chunks waiting, in memory, to be written on the disk").Default("100000000").Int()
+	framereader       = make(<-chan cm.Frame)
+	Version           = "unversioned"
+	cfgMemoryStorage  = local.MemorySeriesStorageOptions{
+		MemoryChunks:       0,
+		MaxChunksToPersist: 0,
 		//PersistenceStoragePath:
 		//PersistenceRetentionPeriod:
 		//CheckpointInterval:         time.Minute*30,
@@ -59,44 +67,62 @@ func osfile2fname(fss []os.FileInfo, dir string) []string {
 	return out
 }
 
-func generateFramereader() {
+func generateFramereader() int {
+	defer func() {
+		if e := recover(); e != nil {
+			logrus.Errorf("Frame reader generation failed!, MESSAGE: %v", e)
+		}
+	}()
+
+	logrus.Infoln("Preliminary file read started...")
+	var count int = 0
 	// 1. Check for every file that is GZip or csave format and create the filemap
 	files, err := ioutil.ReadDir(*dir)
 	if err != nil {
-		logrus.Fatalf("generateFilemap: %v", err)
+		panic(err)
 	}
 	readers := make([]io.Reader, 0)
 
 	fnames := osfile2fname(files, *dir)
-	sort.Sort(cm.ByNumber(fnames))
+	sort.Sort(sort.Reverse(cm.ByNumber(fnames)))
 
 	logrus.Debugf("fnames: %v", fnames)
 
-	for _, filepath := range fnames {
-		logrus.Debugf("filepath: %v", filepath)
-		ftype, err := filetype.MatchFile(filepath)
+	for _, path := range fnames {
+		logrus.Debugf("filepath: %v", path)
+		ftype, err := filetype.MatchFile(path)
 		if err != nil {
 			logrus.Debugf("err %v", err)
 		}
 		if ftype.MIME.Value == "application/replay" {
-			f, _ := os.Open(filepath)
+			f, _ := os.Open(path)
+
+			count += len(cm.ReadAll(f).Data)
+			f.Seek(0, 0)
+
 			readers = append(readers, f)
 		}
-
 		if ftype.MIME.Value == "application/gzip" {
-			f, _ := os.Open(filepath)
-			logrus.Debugf("reading header: %v", filepath)
-			gz, _ := gzip.NewReader(f)
-			header, err := cm.ReadFrameHeader(gz)
-			if err == nil && cm.CheckVersion(header) {
-				f.Seek(0, io.SeekStart)
-				gz, _ = gzip.NewReader(f)
-				readers = append(readers, gz)
-			}
+			filename := filepath.Base(path)
+			ungzip(path, "./tmp/"+trimSuffix(filename, ".gz"))
+
+			f, _ := os.Open("./tmp/" + trimSuffix(filename, ".gz"))
+
+			count += len(cm.ReadAll(f).Data)
+			f.Seek(0, 0)
+
+			readers = append(readers, f)
 		}
 	}
-
 	framereader = cm.NewMultiReader(readers)
+	return count
+}
+
+func trimSuffix(s, suffix string) string {
+	if strings.HasSuffix(s, suffix) {
+		s = s[:len(s)-len(suffix)]
+	}
+	return s
 }
 
 func updateURLTimestamp(timestamp int64, name string, url string, body io.Reader) io.Reader {
@@ -137,7 +163,7 @@ func updateURLTimestamp(timestamp int64, name string, url string, body io.Reader
 
 			enc.Encode(&metrics)
 
-			count += 1
+			count++
 		}
 
 		logrus.Printf("%d metrics unmarshalled for %s", count, url)
@@ -147,7 +173,40 @@ func updateURLTimestamp(timestamp int64, name string, url string, body io.Reader
 	return pr
 }
 
+func ungzip(source, target string) {
+	defer func() {
+		if e := recover(); e != nil {
+			logrus.Errorf("Errors during decompression of %v", source)
+		}
+	}()
+
+	reader, err := os.Open(source)
+	if err != nil {
+		panic(err)
+	}
+	defer reader.Close()
+
+	archive, err := gzip.NewReader(reader)
+	if err != nil {
+		panic(err)
+	}
+	defer archive.Close()
+
+	target = filepath.Join(target, archive.Name)
+	writer, err := os.Create(target)
+	if err != nil {
+		panic(err)
+	}
+	defer writer.Close()
+
+	_, err = io.Copy(writer, archive)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func main() {
+
 	kingpin.Version(Version)
 
 	kingpin.Flag("storage.path", "Directory path to create and fill the data store under.").Default("data").StringVar(&cfgMemoryStorage.PersistenceStoragePath)
@@ -163,7 +222,20 @@ func main() {
 		flag.Set("log.level", "debug")
 	}
 
+	if !*verbose {
+		logrus.SetLevel(logrus.ErrorLevel)
+		flag.Set("log.level", "error")
+	}
+
+	// create temp directory to store ungzipped files
+	os.Mkdir("./tmp", 0700)
+	defer os.RemoveAll("./tmp")
+
 	logrus.Infoln("Prefilling into", cfgMemoryStorage.PersistenceStoragePath)
+
+	cfgMemoryStorage.MaxChunksToPersist = *maxChunkToPersist
+	cfgMemoryStorage.MemoryChunks = *memoryChunk
+
 	localStorage := local.NewMemorySeriesStorage(&cfgMemoryStorage)
 
 	sampleAppender := localStorage
@@ -181,7 +253,8 @@ func main() {
 
 	filetype.AddMatcher(replayType, replayMatcher)
 
-	generateFramereader()
+	count := generateFramereader()
+
 	logrus.Debug("frameReader %+v", framereader)
 
 	sout := bufio.NewWriter(os.Stdout)
@@ -189,11 +262,15 @@ func main() {
 
 	r := &http.Request{}
 
+	bar := pb.ProgressBarTemplate(`{{ red "Frames processed:" }} {{bar . | green}} {{rtime . "ETA %s" | blue }} {{percent . }}`).Start(count)
+	defer bar.Finish()
+
 	for frame := range framereader {
+		bar.Increment()
 		response, err := http.ReadResponse(bufio.NewReader(filebuffer.New(frame.Data)), r)
 		if err != nil {
-			logrus.Error(err)
-			return
+			logrus.Errorf("Errors occured while reading frame %d, MESSAGE: %v", frame.NameString, err)
+			continue
 		}
 		bytesReader := updateURLTimestamp(frame.Header.Timestamp, frame.NameString(), frame.URIString(), response.Body)
 
@@ -214,7 +291,7 @@ func main() {
 		logrus.Infoln("Ingested", len(decSamples), "metrics")
 
 		for sampleAppender.NeedsThrottling() {
-			logrus.Debugln("Waiting 100ms for appender to be ready for more data")
+			logrus.Debugln("THROTTLING: Waiting 100ms for appender to be ready for more data")
 			time.Sleep(time.Millisecond * 100)
 		}
 
@@ -224,6 +301,7 @@ func main() {
 		)
 
 		for _, s := range model.Samples(decSamples) {
+
 			if err := sampleAppender.Append(s); err != nil {
 				switch err {
 				case local.ErrOutOfOrderSample:
@@ -231,18 +309,18 @@ func main() {
 					logrus.WithFields(logrus.Fields{
 						"sample": s,
 						"error":  err,
-					}).Info("Sample discarded")
+					}).Error("Sample discarded")
 				case local.ErrDuplicateSampleForTimestamp:
 					numDuplicates++
 					logrus.WithFields(logrus.Fields{
 						"sample": s,
 						"error":  err,
-					}).Info("Sample discarded")
+					}).Error("Sample discarded")
 				default:
 					logrus.WithFields(logrus.Fields{
 						"sample": s,
 						"error":  err,
-					}).Info("Sample discarded")
+					}).Error("Sample discarded")
 				}
 			}
 		}

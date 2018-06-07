@@ -8,7 +8,7 @@ import (
 var reNumber *regexp.Regexp
 
 func init() {
-	reNumber, _ = regexp.Compile("([0-9]*)$")
+	reNumber, _ = regexp.Compile("[0-9]+")
 }
 
 // ByNumber helper struct to sort by last number all the log files
