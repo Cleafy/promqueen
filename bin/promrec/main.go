@@ -7,7 +7,7 @@ import (
 	"net/http/httputil"
 	"os"
 	"time"
-	"net/http/pprof"
+	_ "net/http/pprof"
 
 	"github.com/cleafy/promqueen/model"
 	"github.com/sirupsen/logrus"
@@ -63,6 +63,8 @@ func main() {
 		return
 	}
 
+	http.ListenAndServe("0.0.0.0:8080", nil)
+
 	ticker := time.NewTicker(*interval)
 
 	for range ticker.C {
@@ -96,5 +98,5 @@ func main() {
 		}
 	}
 
-	http.ListenAndServe("0.0.0.0:8080", nil)
+
 }
