@@ -9,7 +9,7 @@ import (
 	"time"
 	_ "net/http/pprof"
 
-	"github.com/cleafy/promqueen/model"
+	"promqueen/model"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
