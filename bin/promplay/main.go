@@ -43,7 +43,7 @@ var (
 	nopromcfg         = kingpin.Flag("nopromcfg", "Disable the generation of the prometheus cfg file (prometheus.yml)").Bool()
 	dir               = kingpin.Flag("dir", "Input directory.").Short('d').OverrideDefaultFromEnvar("INPUT_DIRECTORY").Default(".").String()
 	memoryChunk       = kingpin.Flag("memoryChunk", "Maximum number of chunks in memory").Default("100000000").Int()
-	maxChunkToPersist = kingpin.Flag("mexChunkToPersist", "Maximum number of chunks waiting, in memory, to be written on the disk").Default("100000000").Int()
+	maxChunkToPersist = kingpin.Flag("mexChunkToPersist", "Maximum number of chunks waiting, in memory, to be written on the disk").Default("10000").Int()
 	framereader       = make(<-chan cm.Frame)
 	Version           = "unversioned"
 	cfgMemoryStorage  = local.MemorySeriesStorageOptions{
@@ -93,6 +93,7 @@ func generateFramereader() int {
 		ftype, err := filetype.MatchFile(path)
 		if err != nil {
 			logrus.Debugf("err %v", err)
+			continue
 		}
 		if ftype.MIME.Value == "application/replay" {
 			f, _ := os.Open(path)
@@ -267,6 +268,7 @@ func main() {
 
 	for frame := range framereader {
 		bar.Increment()
+
 		response, err := http.ReadResponse(bufio.NewReader(filebuffer.New(frame.Data)), r)
 		if err != nil {
 			logrus.Errorf("Errors occured while reading frame %d, MESSAGE: %v", frame.NameString, err)
@@ -325,6 +327,7 @@ func main() {
 			}
 		}
 	}
+
 	// Generate the prometheus.yml in case it does not exist
 	promcfgpath := cfgMemoryStorage.PersistenceStoragePath + "/../prometheus.yml"
 	if _, err := os.Stat(promcfgpath); os.IsNotExist(err) && !*nopromcfg {
