@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	cm "promqueen/model"
+	cm "github.com/Cleafy/promqueen/model"
 
 	"github.com/mattetti/filebuffer"
 	dto "github.com/prometheus/client_model/go"
