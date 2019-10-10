@@ -3,6 +3,7 @@ package model
 import (
 	"io"
 	"sync"
+	"encoding/binary"
 
 	"github.com/sirupsen/logrus"
 )
@@ -14,15 +15,15 @@ func WriteFrame(w io.Writer, frame *Frame) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	// err := binary.Write(w, binary.BigEndian, frame.Header)
-	// if err != nil {
-	// 	return err
-	// }
-	// err = binary.Write(w, binary.BigEndian, frame.Data)
-	// if err != nil {
-	// 	return err
-	// }
-	// logrus.Debugf("Written data to WriteSeeker: Data %s", frame.Data)
-	logrus.Info("PIPPO")
+	err := binary.Write(w, binary.BigEndian, frame.Header)
+	if err != nil {
+		return err
+	}
+	err = binary.Write(w, binary.BigEndian, frame.Data)
+	if err != nil {
+		return err
+	}
+	logrus.Debugf("Written data to WriteSeeker: Data %s", frame.Data)
+
 	return nil
 }

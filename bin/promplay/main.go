@@ -43,9 +43,9 @@ var (
 	nopromcfg         = kingpin.Flag("nopromcfg", "Disable the generation of the prometheus cfg file (prometheus.yml)").Bool()
 	dir               = kingpin.Flag("dir", "Input directory.").Short('d').OverrideDefaultFromEnvar("INPUT_DIRECTORY").Default(".").String()
 	memoryChunk       = kingpin.Flag("memoryChunk", "Maximum number of chunks in memory").Default("100000000").Int()
-	maxChunkToPersist = kingpin.Flag("mexChunkToPersist", "Maximum number of chunks waiting, in memory, to be written on the disk").Default("10000").Int()
+	maxChunkToPersist = kingpin.Flag("maxChunkToPersist", "Maximum number of chunks waiting, in memory, to be written on the disk").Default("10000").Int()
 	framereader       = make(<-chan cm.Frame)
-	Version           = "unversioned"
+	Version           = "0.0.9"
 	cfgMemoryStorage  = local.MemorySeriesStorageOptions{
 		MemoryChunks:       0,
 		MaxChunksToPersist: 0,

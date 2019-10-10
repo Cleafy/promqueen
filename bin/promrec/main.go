@@ -19,8 +19,8 @@ var (
 	interval   = kingpin.Flag("interval", "Timeout waiting for ping.").Default("60s").OverrideDefaultFromEnvar("ACTION_INTERVAL").Short('i').Duration()
 	umap       = kingpin.Flag("umap", "stringmap [eg. service.name=http://get.uri:port/uri].").Short('u').StringMap()
 	output     = kingpin.Flag("output", "Output file.").Short('o').OverrideDefaultFromEnvar("OUTPUT_FILE").Default("metrics").String()
-	maxIntervalsNumber = kingpin.Flag("maxIntervalsNumber", "Max number of intervals").Short('n').Default("0").Int()
-	Version    = "unversioned"
+	maxIntervalsNumber = kingpin.Flag("maxIntervalsNumber", "Max number of intervals").Short('n').Default("120").Int()
+	Version    = "0.0.9"
 	filewriter io.WriteCloser
 )
 
@@ -63,9 +63,9 @@ func main() {
 		return
 	}
 
-
 	ticker := time.NewTicker(*interval)
 	intervalsCount := 0
+
 	for range ticker.C {
 		if (*maxIntervalsNumber > 0) {
 			if (intervalsCount > *maxIntervalsNumber) {
@@ -101,7 +101,7 @@ func main() {
 				continue
 			}
 		}
-		
+
 		intervalsCount += 1
 	}
 }
