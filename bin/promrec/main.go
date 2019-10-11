@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/cleafy/promqueen/model"
+	"github.com/Cleafy/promqueen/model"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -19,7 +19,8 @@ var (
 	interval   = kingpin.Flag("interval", "Timeout waiting for ping.").Default("60s").OverrideDefaultFromEnvar("ACTION_INTERVAL").Short('i').Duration()
 	umap       = kingpin.Flag("umap", "stringmap [eg. service.name=http://get.uri:port/uri].").Short('u').StringMap()
 	output     = kingpin.Flag("output", "Output file.").Short('o').OverrideDefaultFromEnvar("OUTPUT_FILE").Default("metrics").String()
-	Version    = "unversioned"
+	maxIntervalsNumber = kingpin.Flag("maxIntervalsNumber", "Max number of intervals").Short('n').Default("120").Int()
+	Version    = "0.0.9"
 	filewriter io.WriteCloser
 )
 
@@ -63,8 +64,15 @@ func main() {
 	}
 
 	ticker := time.NewTicker(*interval)
+	intervalsCount := 0
 
 	for range ticker.C {
+		if (*maxIntervalsNumber > 0) {
+			if (intervalsCount > *maxIntervalsNumber) {
+				os.Exit(0)
+			}
+		}
+
 		for sname, url := range *umap {
 			writer, err := writerFor()
 			if err != nil {
@@ -93,5 +101,7 @@ func main() {
 				continue
 			}
 		}
+
+		intervalsCount += 1
 	}
 }

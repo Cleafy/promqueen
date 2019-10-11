@@ -1,9 +1,9 @@
 package model
 
 import (
-	"encoding/binary"
 	"io"
 	"sync"
+	"encoding/binary"
 
 	"github.com/sirupsen/logrus"
 )
