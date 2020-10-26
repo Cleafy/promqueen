@@ -14,29 +14,6 @@ import (
 func NewMultiReader(r []io.Reader) <-chan Frame {
 	chframe := make(chan Frame)
 
-/*
-
-func eatThisShit(reader IoReader, output chan something) {
-	output <- readFrame(reader)
-}
-
-func readMulti() {
-	for reader in readers {
-		go eatThisShit(reader, outChan)
-	}
-
-}
-
-readers = [reader1, reader2, ...]
-
-for reader in readers {
-	readAllUntilReaderIsDone(reader)
-}
-
-return
-
-*/
-
 	go func() {
 		defer close(chframe)
 		windex := 0
