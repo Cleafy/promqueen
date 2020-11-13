@@ -17,4 +17,4 @@ WORKDIR /promqueen
 
 COPY --from=build $GOPATH/bin/promrec /promqueen
 
-ENTRYPOINT /promqueen/promrec
+ENTRYPOINT ["/promqueen/promrec"]
