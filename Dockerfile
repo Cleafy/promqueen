@@ -1,4 +1,4 @@
-FROM golang:1.15 as build
+FROM golang as build
 
 RUN apt update && apt install -yq go-dep
 
@@ -11,7 +11,7 @@ RUN dep ensure
 WORKDIR $GOPATH/src/github.com/Cleafy/promqueen/bin/promrec
 RUN GOOS=linux GOARCH=386 CGO_ENABLED=0 go build -o "$GOPATH/bin/promrec" -a -ldflags "-extldflags '-static'" github.com/Cleafy/promqueen/bin/promrec
 
-FROM golang:1.15
+FROM golang:alpine
 
 WORKDIR /promqueen
 
