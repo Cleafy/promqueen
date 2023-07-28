@@ -1,4 +1,4 @@
-FROM golang:1.15 as build
+FROM golang:1.15 AS build
 
 RUN apt update && apt install -yq go-dep
 
@@ -17,4 +17,15 @@ WORKDIR /promqueen
 
 COPY --from=build $GOPATH/bin/promrec /promqueen
 
-ENTRYPOINT ["/promqueen/promrec"]
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y logrotate findutils && rm -rf /var/lib/apt/lists/*
+
+ARG METRICS_DIR="/var/log/cleafy/metrics"
+
+RUN mkdir -p $METRICS_DIR
+
+COPY log_rotate_conf.sh .
+COPY rotate-metrics.sh .
+COPY entrypoint.sh .
+
+ENTRYPOINT ["./entrypoint.sh"]

@@ -76,6 +76,29 @@ Flags:
                              Period of time to store data for
 ```
 
+### Environment variables
+
+```PROM_ARGS```: The argument for the promqueen service. Output, interval and at least one service is mandatory. 
+  - E.g. --output=/var/log/promqueen/metrics/metrics.prom --interval=30s -u serviceName1=URL1 -u serviceName2=URL2 ...
+
+
+```ROTATION_FILE_LOG```: where the rotation should occurr. Must be the same of the "output" parameter in PROM_ARGS
+
+
+```ROTATION_PERIOD```: how frequently a rotation will occurr. Default: "daily"
+
+```ROTATION_COUNT```: how many rotation will be retained. Default: 10
+ 
+```ROTATION_SIZE```: how big each rotation file will be in bytes. -1 means no limit. Default: -1. E.g. 100M
+
+
+```
+docker run -d --network=host --name promqueen \
+-e ROTATION_FILE_LOG="/var/log/promqueen/metrics/metrics.prom" \
+-e PROM_ARGS="--output=/var/log/promqueen/metrics/metrics.prom --interval=30s -u service1=URL1 -u service2=URL2" \
+ promqueen_image
+```
+
 ### Notes
 
 As of today **PromQueen** only supports backfilling inside _prometheus_ local storage. New storage types such as influxdb are not supported.
