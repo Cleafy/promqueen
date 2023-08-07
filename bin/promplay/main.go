@@ -45,7 +45,7 @@ var (
 	memoryChunk       = kingpin.Flag("memoryChunk", "Maximum number of chunks in memory").Default("100000000").Int()
 	maxChunkToPersist = kingpin.Flag("maxChunkToPersist", "Maximum number of chunks waiting, in memory, to be written on the disk").Default("10000").Int()
 	framereader       = make(<-chan cm.Frame)
-	Version           = "0.0.9"
+	Version           = "0.0.10"
 	cfgMemoryStorage  = local.MemorySeriesStorageOptions{
 		MemoryChunks:       0,
 		MaxChunksToPersist: 0,

@@ -20,7 +20,7 @@ var (
 	umap       = kingpin.Flag("umap", "stringmap [eg. service.name=http://get.uri:port/uri].").Short('u').StringMap()
 	output     = kingpin.Flag("output", "Output file.").Short('o').OverrideDefaultFromEnvar("OUTPUT_FILE").Default("metrics").String()
 	maxIntervalsNumber = kingpin.Flag("maxIntervalsNumber", "Max number of intervals").Short('n').Default("120").Int()
-	Version    = "0.0.9"
+	Version    = "0.0.10"
 	filewriter io.WriteCloser
 )
 
