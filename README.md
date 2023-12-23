@@ -15,6 +15,8 @@ Clone this repository in your **$GOPATH**:
 $ mkdir -p $GOPATH/src/github.com/Cleafy
 $ cd $GOPATH/src/github.com/Cleafy
 $ git clone https://github.com/Cleafy/promqueen.git
+$ cd $GOPATH/src/github.com/
+$ go mod init
 ```
 
 Use Go package manager ***dep*** to install the required dependencies:
